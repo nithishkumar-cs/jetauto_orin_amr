@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>logging_and_diagnostics</name>
+  <version>0.1.0</version>
+  <description>Runtime health aggregation and diagnostics for the AMR stack.</description>
+  <maintainer email="nithish@example.com">Nithish</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>amr_interfaces</depend>
+  <depend>rclcpp</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
+

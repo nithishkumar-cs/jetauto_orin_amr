@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  host-check:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up ROS 2
+        uses: ros-tooling/setup-ros@v0.7
+        with:
+          required-ros-distributions: humble
+
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang-format \
+            libopencv-dev \
+            python3-colcon-common-extensions \
+            python3-pip \
+            ros-humble-ament-cmake-gtest \
+            ros-humble-nav2-bringup \
+            ros-humble-slam-toolbox \
+            ros-humble-tf2-geometry-msgs
+          python3 -m pip install --user black
+
+      - name: Check formatting
+        run: scripts/dev_helpers/format_workspace.sh --check
+
+      - name: Build and test host profile
+        run: JETAUTO_CHECK_PROFILE=host scripts/dev_helpers/check_workspace.sh

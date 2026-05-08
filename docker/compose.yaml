@@ -1,0 +1,11 @@
+services:
+  dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    volumes:
+      - ..:/workspaces/jetauto_orin_amr
+    network_mode: host
+    ipc: host
+    tty: true
+    stdin_open: true

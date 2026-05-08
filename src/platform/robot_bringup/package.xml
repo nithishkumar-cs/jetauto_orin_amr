@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>robot_bringup</name>
+  <version>0.1.0</version>
+  <description>Launch orchestration for JetAuto Orin AMR development and robot profiles.</description>
+  <maintainer email="nithish@example.com">Nithish</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>base_interface</exec_depend>
+  <exec_depend>benchmarks</exec_depend>
+  <exec_depend>logging_and_diagnostics</exec_depend>
+  <exec_depend>perception_geometry</exec_depend>
+  <exec_depend>perception_inference</exec_depend>
+  <exec_depend>perception_preproc</exec_depend>
+  <exec_depend>safety_layer</exec_depend>
+  <exec_depend>sensor_drivers</exec_depend>
+  <exec_depend>sensor_fusion</exec_depend>
+  <exec_depend>tf_and_calibration</exec_depend>
+  <exec_depend>tracking_fusion</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
+

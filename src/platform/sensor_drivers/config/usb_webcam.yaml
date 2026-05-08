@@ -1,0 +1,16 @@
+usb_camera_node:
+  ros__parameters:
+    device: /dev/video0
+    frame_id: usb_camera_optical_frame
+    output_encoding: bgr8
+    width: 1280
+    height: 720
+    fps: 30.0
+    use_mjpeg: true
+    reconnect_period_s: 1.0
+    distortion_model: plumb_bob
+    d: [0.0, 0.0, 0.0, 0.0, 0.0]
+    k: [900.0, 0.0, 640.0, 0.0, 900.0, 360.0, 0.0, 0.0, 1.0]
+    r: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    p: [900.0, 0.0, 640.0, 0.0, 0.0, 900.0, 360.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+

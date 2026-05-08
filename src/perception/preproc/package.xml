@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>perception_preproc</name>
+  <version>0.1.0</version>
+  <description>CUDA accelerated image preprocessing for detector input tensors.</description>
+  <maintainer email="nithish@example.com">Nithish</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>amr_interfaces</depend>
+  <depend>cuda_common</depend>
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
+

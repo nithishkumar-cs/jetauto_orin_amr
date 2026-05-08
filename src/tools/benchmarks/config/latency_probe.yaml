@@ -1,0 +1,6 @@
+latency_probe_node:
+  ros__parameters:
+    image_topic: /sensors/rgb/image_raw
+    detections_topic: /perception/detections_2d
+    obstacles_topic: /perception/fused_obstacles
+    report_period_s: 2.0

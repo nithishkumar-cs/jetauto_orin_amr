@@ -1,0 +1,30 @@
+robot:
+  name: jetauto_orin_amr
+  role: indoor_warehouse_amr_prototype
+  platform: hiwonder_jetauto_standard_without_controller
+  onboard_compute: nvidia_jetson_orin_nano_developer_kit
+  drive_type: mecanum
+
+frames:
+  map: map
+  odom: odom
+  base: base_link
+  base_footprint: base_footprint
+  rgb_camera: rgb_camera_link
+  rgb_camera_optical: rgb_camera_optical_frame
+  depth_camera: depth_camera_link
+  depth_camera_optical: depth_camera_optical_frame
+  lidar: lidar_link
+
+physical_limits:
+  max_linear_velocity_mps: 0.6
+  max_angular_velocity_radps: 1.2
+  nominal_robot_radius_m: 0.28
+  stop_zone_radius_m: 0.55
+  slow_zone_radius_m: 1.25
+
+operational_policy:
+  primary_input_sources: [hardware, replay]
+  jetson_simulation_runtime: false
+  require_health_topics: true
+  require_safety_gate: true

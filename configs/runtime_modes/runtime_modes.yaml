@@ -1,0 +1,49 @@
+input_source_modes:
+  hardware:
+    description: Live JetAuto hardware streams.
+    use_sim_time: false
+    expected_sources:
+      - camera
+      - depth_camera
+      - lidar
+      - base_controller
+
+  replay:
+    description: Rosbag2 playback of normalized hardware topic contracts.
+    use_sim_time: true
+    expected_sources:
+      - rosbag2
+
+instrumentation_modes:
+  debug:
+    log_level: debug
+    enable_assertions: true
+    enable_topic_validation: true
+    enable_cuda_timing: false
+
+  profile:
+    log_level: info
+    enable_assertions: false
+    enable_topic_validation: true
+    enable_cuda_timing: true
+    export_metrics: true
+
+  production:
+    log_level: warn
+    enable_assertions: false
+    enable_topic_validation: false
+    enable_cuda_timing: false
+    export_metrics: false
+
+supported_combinations:
+  - hardware+debug
+  - hardware+profile
+  - hardware+production
+  - replay+debug
+  - replay+profile
+  - replay+production
+
+unsupported_modes:
+  jetson_simulation_runtime:
+    supported: false
+    reason: Simulation is outside this Jetson robot repository.

@@ -1,0 +1,15 @@
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+include = '\.py$'
+extend-exclude = '''
+/(
+  build
+  | install
+  | log
+)/
+'''
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "src"]
+addopts = "-ra"

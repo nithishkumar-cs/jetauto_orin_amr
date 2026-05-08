@@ -1,0 +1,6 @@
+waypoint_task_manager_node:
+  ros__parameters:
+    task_name: inspect_waypoints
+    goal_topic: /goal_pose
+    status_topic: /navigation/task_status
+

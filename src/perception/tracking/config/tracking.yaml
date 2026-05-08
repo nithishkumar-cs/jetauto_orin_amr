@@ -1,0 +1,9 @@
+obstacle_tracker_node:
+  ros__parameters:
+    input_topic: /perception/obstacles_3d
+    output_topic: /perception/tracked_obstacles
+    association_distance_m: 0.75
+    max_track_age_s: 0.80
+    velocity_alpha: 0.35
+    dynamic_speed_threshold_mps: 0.20
+

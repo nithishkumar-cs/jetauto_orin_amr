@@ -1,0 +1,8 @@
+calibration_validator_node:
+  ros__parameters:
+    base_frame: base_link
+    camera_frame: rgb_camera_optical_frame
+    camera_info_topic: /sensors/rgb/camera_info
+    min_focal_px: 100.0
+    max_focal_px: 3000.0
+    stale_camera_info_s: 1.0

@@ -1,0 +1,34 @@
+artifact_root: /opt/jetauto_orin_amr/models
+
+default_backend: debug
+
+backends:
+  debug:
+    package: perception_inference
+    config: src/perception/inference_core/config/debug_detector.yaml
+    role: deterministic graph validation backend
+    requires_accelerator: false
+
+  yolo:
+    package: perception_inference
+    config: src/perception/inference_core/config/yolo_detector.yaml
+    role: high-speed TensorRT baseline backend
+    engine: /opt/jetauto_orin_amr/models/yolo/yolov8n.engine
+    labels: /opt/jetauto_orin_amr/models/yolo/coco.labels
+    requires_accelerator: true
+
+  rf_detr:
+    package: perception_inference
+    config: src/perception/inference_core/config/rf_detr_detector.yaml
+    role: flagship DETR-family embedded deployment target
+    engine: /opt/jetauto_orin_amr/models/rf_detr/rf_detr.engine
+    labels: /opt/jetauto_orin_amr/models/rf_detr/labels.txt
+    requires_accelerator: true
+
+  rt_detr:
+    package: perception_inference
+    config: src/perception/models/rt_detr_backend/config/rt_detr_detector.yaml
+    role: DETR-family comparison backend
+    engine: /opt/jetauto_orin_amr/models/rt_detr/rt_detr.engine
+    labels: /opt/jetauto_orin_amr/models/rt_detr/labels.txt
+    requires_accelerator: true

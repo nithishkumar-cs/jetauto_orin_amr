@@ -1,0 +1,13 @@
+health_aggregator_node:
+  ros__parameters:
+    stale_timeout_s: 1.5
+    health_topics:
+      - /diagnostics/usb_camera/health
+      - /diagnostics/preproc/health
+      - /diagnostics/detector/health
+      - /diagnostics/calibration/health
+      - /diagnostics/geometry/health
+      - /diagnostics/tracking/health
+      - /diagnostics/fusion/health
+      - /diagnostics/base/health
+

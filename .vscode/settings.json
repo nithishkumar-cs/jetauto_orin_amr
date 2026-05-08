@@ -1,0 +1,8 @@
+{
+  "cmake.configureOnOpen": false,
+  "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/install/evaluation_tools/lib/python3.10/site-packages"
+  ]
+}
+
