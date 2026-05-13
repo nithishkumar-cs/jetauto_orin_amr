@@ -21,10 +21,10 @@ class UsbCameraNode final : public rclcpp::Node
 {
 public:
   explicit UsbCameraNode(const rclcpp::NodeOptions& options)
-  : Node("usb_camera_node", options)
+  : Node("rgb_camera_node", options)
   {
     device_ = declare_parameter<std::string>("device", "/dev/video0");
-    frame_id_ = declare_parameter<std::string>("frame_id", "usb_camera_optical_frame");
+    frame_id_ = declare_parameter<std::string>("frame_id", "rgb_camera_optical_frame");
     output_encoding_ = declare_parameter<std::string>("output_encoding", "bgr8");
     width_ = declare_parameter<int>("width", 1280);
     height_ = declare_parameter<int>("height", 720);

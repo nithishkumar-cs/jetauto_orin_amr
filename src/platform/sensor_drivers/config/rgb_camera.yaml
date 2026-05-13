@@ -1,7 +1,7 @@
-usb_camera_node:
+rgb_camera_node:
   ros__parameters:
     device: /dev/video0
-    frame_id: usb_camera_optical_frame
+    frame_id: rgb_camera_optical_frame
     output_encoding: bgr8
     width: 1280
     height: 720
@@ -13,4 +13,3 @@ usb_camera_node:
     k: [900.0, 0.0, 640.0, 0.0, 900.0, 360.0, 0.0, 0.0, 1.0]
     r: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
     p: [900.0, 0.0, 640.0, 0.0, 0.0, 900.0, 360.0, 0.0, 0.0, 0.0, 1.0, 0.0]
-

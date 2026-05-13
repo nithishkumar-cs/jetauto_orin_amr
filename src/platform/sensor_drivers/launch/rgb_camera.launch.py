@@ -14,19 +14,19 @@ def generate_launch_description():
             default_value=PathJoinSubstitution([
                 FindPackageShare("sensor_drivers"),
                 "config",
-                "usb_webcam.yaml",
+                "rgb_camera.yaml",
             ]),
         ),
         Node(
             package="sensor_drivers",
             executable="usb_camera_node",
-            name="usb_camera_node",
+            name="rgb_camera_node",
             output="screen",
             parameters=[params],
             remappings=[
                 ("image_raw", "/sensors/rgb/image_raw"),
                 ("camera_info", "/sensors/rgb/camera_info"),
-                ("health", "/diagnostics/usb_camera/health"),
+                ("health", "/diagnostics/rgb_camera/health"),
             ],
         ),
     ])

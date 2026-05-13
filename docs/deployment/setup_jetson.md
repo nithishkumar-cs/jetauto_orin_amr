@@ -9,7 +9,7 @@ Target platform:
 
 Initial setup:
 
-This project uses native Jetson installation for the first hardware bring-up. Docker support is a later reproducibility path, not the default camera/robot workflow.
+This project uses native Jetson installation for the first hardware bring-up. Docker support is a later reproducibility path, not the default hardware workflow.
 
 ```bash
 cd ~/projects/robotics/jetauto_orin_amr
@@ -19,17 +19,17 @@ source /opt/ros/humble/setup.bash
 source install/setup.bash
 ```
 
-Verify the USB camera:
+Run the debug bring-up:
 
 ```bash
-v4l2-ctl --list-devices
-ros2 launch robot_bringup webcam_perception.launch.py
+ros2 launch robot_bringup robot_stack.launch.py instrumentation_mode:=debug
 ```
 
-The webcam launch uses the debug detector by default. Switch to the YOLO TensorRT config once an engine exists:
+Debug mode uses the debug detector by default. Switch to the YOLO TensorRT config once an engine exists:
 
 ```bash
-ros2 launch robot_bringup webcam_perception.launch.py \
+ros2 launch robot_bringup robot_stack.launch.py \
+  instrumentation_mode:=debug \
   detector_params:=$(ros2 pkg prefix perception_inference)/share/perception_inference/config/yolo_detector.yaml
 ```
 

@@ -8,15 +8,21 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <exec_depend>ament_index_python</exec_depend>
   <exec_depend>base_interface</exec_depend>
   <exec_depend>benchmarks</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>localization_mapping</exec_depend>
   <exec_depend>logging_and_diagnostics</exec_depend>
+  <exec_depend>navigation_tasks</exec_depend>
   <exec_depend>perception_geometry</exec_depend>
   <exec_depend>perception_inference</exec_depend>
   <exec_depend>perception_preproc</exec_depend>
   <exec_depend>safety_layer</exec_depend>
   <exec_depend>sensor_drivers</exec_depend>
   <exec_depend>sensor_fusion</exec_depend>
+  <exec_depend>teleop_tools</exec_depend>
   <exec_depend>tf_and_calibration</exec_depend>
   <exec_depend>tracking_fusion</exec_depend>
 
@@ -24,4 +30,3 @@
     <build_type>ament_cmake</build_type>
   </export>
 </package>
-

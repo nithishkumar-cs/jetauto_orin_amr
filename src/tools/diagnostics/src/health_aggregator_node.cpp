@@ -22,7 +22,7 @@ public:
     const auto topics = declare_parameter<std::vector<std::string>>(
       "health_topics",
       std::vector<std::string>{
-        "/diagnostics/usb_camera/health",
+        "/diagnostics/rgb_camera/health",
         "/diagnostics/preproc/health",
         "/diagnostics/detector/health",
         "/diagnostics/calibration/health"});

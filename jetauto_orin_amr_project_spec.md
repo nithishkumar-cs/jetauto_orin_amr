@@ -46,7 +46,7 @@ A **Jetson-powered indoor warehouse-style AMR** that can:
 
 - not a toy line-following robot
 - not a Python-first research prototype
-- not a webcam object-detection demo
+- not a 2D object-detection demo
 - not a simulation-only project
 - not a full autonomous vehicle stack
 - not a manipulation / robot arm project
@@ -237,45 +237,9 @@ The control plane should not pollute the high-rate data plane.
 
 ## 8. Runtime Modes
 
-The main robot project supports runtime modes along two separate axes.
+The main robot project supports one runtime mode axis for bring-up:
 
-### 8.1 Input source mode
-
-The source of robot data can be:
-
-#### `hardware`
-
-Live JetAuto hardware:
-
-- real camera
-- real depth
-- real LiDAR
-- real base controller
-- real odometry
-- real display
-
-#### `replay`
-
-The Jetson consumes rosbag2 recordings as if they were live streams.
-
-This is useful for:
-
-- regression testing
-- perception debugging
-- benchmark repeatability
-- failure analysis
-
-### 8.2 External simulation boundary
-
-Simulation is not a Jetson runtime package group for this repository.
-
-The main robot stack defines clean topic contracts for live hardware and rosbag
-replay. If an external simulator is used later, it should live in a separate
-workstation project and publish compatible ROS2 topics or generate compatible
-bags. The Jetson repository should not contain simulator assets, simulator
-packages, or Jetson-side simulation launch paths.
-
-### 8.3 Instrumentation mode
+### 8.1 Instrumentation mode
 
 The runtime instrumentation level can be:
 
@@ -322,20 +286,21 @@ Includes:
 
 Production mode should still have observability, but not heavy profiling overhead by default.
 
-### 8.4 Example mode combinations
+Bring-up should use a single launch file. The user selects `debug`, `profile`,
+or `production` through launch arguments, and `system_modes.yaml` defines the
+default subsystem set for each mode. The launch system should not branch on
+whether data is coming from live hardware or rosbag playback; nodes should
+launch and listen on the standard topic contracts either way.
 
-The architecture should support combinations such as:
+### 8.2 Replay and simulation boundary
 
-- `hardware + debug`
-- `hardware + profile`
-- `hardware + production`
-- `replay + debug`
-- `replay + profile`
-- `replay + production`
+Simulation is not a Jetson runtime package group for this repository.
 
-External simulation can still be used later by publishing compatible topics or
-bags from a separate laptop/workstation project, but that workflow is outside
-the main robot repository scope.
+The main robot stack defines clean topic contracts for live hardware and rosbag
+replay. If an external simulator is used later, it should live in a separate
+workstation project and publish compatible ROS2 topics or generate compatible
+bags. The Jetson repository should not contain simulator assets, simulator
+packages, or Jetson-side simulation launch paths.
 
 ---
 
@@ -432,8 +397,9 @@ Project-level assets such as docs, configs, Dockerfiles, datasets, and bags shou
 
 ```text
 src/
+  robot_bringup/
+
   platform/
-    robot_bringup/
     base_interface/
     sensor_drivers/
     tf_and_calibration/
@@ -603,7 +569,7 @@ tests/
 
 These include:
 
-- launch tests
+- launch/system graph tests
 - rosbag replay tests
 - hardware smoke tests
 - full perception pipeline tests
@@ -620,17 +586,18 @@ These include:
 
 ## 13. Core Components
 
-### 13.1 `platform/robot_bringup`
+### 13.1 `robot_bringup`
 
 Purpose: system entry point for launching the robot stack.
 
 Responsibilities:
 
-- launch hardware or replay graph
+- launch the robot graph from one entrypoint
 - load configuration
 - load calibration files
 - select detector backend
 - select runtime mode
+- apply mode-default component toggles from config
 - start diagnostics
 - validate required topics and parameters
 
@@ -904,7 +871,7 @@ Purpose: offline evaluation and failure analysis.
 
 Responsibilities:
 
-- rosbag replay runner
+- rosbag evaluation runner
 - metrics export
 - detection comparison reports
 - dataset inspection
@@ -1025,11 +992,15 @@ JetAuto sensors/base
 ### 15.2 Replay path
 
 ```text
-rosbag2 replay
+external rosbag playback
   -> same topic contracts
   -> same perception/fusion/localization/safety stack
   -> tools/benchmarks + tools/evaluation_tools
 ```
+
+Rosbag playback should be started outside `robot_bringup`. Bring-up
+launches the robot graph and listens on topic contracts; it should not branch
+on where compatible messages originated.
 
 ### 15.3 Hot path
 
@@ -1198,7 +1169,7 @@ Deliverables:
 
 Build first:
 
-1. `platform/robot_bringup`
+1. `robot_bringup`
 2. `platform/base_interface`
 3. `navigation/teleop_tools`
 4. `platform/sensor_drivers`
@@ -1496,7 +1467,7 @@ Those should run in parallel with the project.
 A good final demo should show:
 
 - robot starts on Jetson
-- hardware and replay modes exist
+- one launch entrypoint supports debug, profile, and production
 - robot can be teleoperated safely
 - robot builds or loads a map
 - robot localizes on the map
@@ -1516,7 +1487,7 @@ A good final demo should show:
 
 Suggested summary:
 
-> Built a production-style Jetson-powered indoor AMR perception, mapping, sensor-fusion, and safety stack on a real mobile robot platform using ROS2, modern C++, CUDA, and TensorRT. Designed a modular detector backend system supporting RF-DETR, YOLO, and other models; integrated GPU-accelerated preprocessing, geometry projection, depth/pose fusion, localization, mapping, obstacle tracking, safety-zone logic, rosbag replay mode, and real-time benchmarking on embedded hardware.
+> Built a production-style Jetson-powered indoor AMR perception, mapping, sensor-fusion, and safety stack on a real mobile robot platform using ROS2, modern C++, CUDA, and TensorRT. Designed a modular detector backend system supporting RF-DETR, YOLO, and other models; integrated GPU-accelerated preprocessing, geometry projection, depth/pose fusion, localization, mapping, obstacle tracking, safety-zone logic, external rosbag replay workflows, and real-time benchmarking on embedded hardware.
 
 ---
 
@@ -1531,7 +1502,7 @@ This document assumes the project will be:
 - focused on **indoor AMR perception, mapping, fusion, navigation, and safety**
 - built as a **production-style robotics software project**
 - implemented as a **C++-first, CUDA-heavy system**
-- designed around **hardware and replay modes**, with external simulation kept outside the Jetson robot repository
+- designed around **one launch entrypoint plus debug/profile/production modes**, with external simulation kept outside the Jetson robot repository
 - designed around **debug, profile, and production instrumentation modes**
 - built with **RF-DETR as a serious engineering target**
 - built with **plug-and-play detector backend support**, including YOLO or other baselines

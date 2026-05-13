@@ -17,9 +17,11 @@ jetauto_orin_amr/
   docs/                     Architecture, calibration, deployment, benchmark, and failure docs
   scripts/                  Setup, flashing, networking, and development helpers
   bags/                     Local rosbag workspace, not for large committed data
+  rosbag/                   Playback helpers kept outside robot bring-up
   datasets/                 Local dataset workspace, not for large committed data
   src/
-    platform/               Bringup, base interface, sensors, TF, shared interfaces
+    robot_bringup/          System orchestration entrypoint
+    platform/               Base interface, sensors, TF, shared interfaces
     perception/             CUDA common, preprocessing, inference, geometry, fusion, tracking
     localization/           Localization, mapping, odometry fusion
     navigation/             Navigation tasks and teleop
@@ -40,7 +42,7 @@ cd ~/projects/robotics/jetauto_orin_amr
 source /opt/ros/humble/setup.bash
 ./scripts/dev_helpers/build_release.sh
 source install/setup.bash
-ros2 launch robot_bringup webcam_perception.launch.py
+ros2 launch robot_bringup robot_stack.launch.py instrumentation_mode:=debug
 ```
 
 Simulator packages and assets do not live in this Jetson robot repository. If

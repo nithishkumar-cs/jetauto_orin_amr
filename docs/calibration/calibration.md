@@ -20,7 +20,7 @@ The placeholder transforms in `frames.yaml` must be replaced with measured extri
 
 Minimum calibration checklist:
 
-- USB camera intrinsics recorded or approximated with clear notes.
+- RGB camera intrinsics recorded or approximated with clear notes.
 - Depth camera intrinsics come from the vendor driver.
 - Camera-to-base transform measured after final mounting.
 - LiDAR-to-base transform measured after final mounting.
