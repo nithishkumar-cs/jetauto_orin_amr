@@ -1,0 +1,82 @@
+# system_modes.yaml — node COMPOSITION per mode.
+#
+# This file only selects WHICH nodes run. HOW each mode behaves (log level,
+# assertions, CUDA timing, metrics export) lives in its sibling runtime_modes.yaml
+# and is chosen there, not here.
+#
+# debug / profile:
+#   Each node has a toggle. A `false` toggle does NOT merely drop the node — the
+#   orchestrator must substitute a synthetic source on that node's output contract:
+#     - drivers = false  -> sensor data comes from a rosbag or a sim (Isaac) bridge
+#     - any other node   -> a synthetic publisher emits that node's output topic
+#   CONSTRAINT: `safety: false` is permitted ONLY when `drivers: false`.
+#     You never run ungated with live sensors / a real robot. Safety may be
+#     disabled only on the bench (replay / sim), where drivers are off.
+#
+# production:
+#   No toggles. The full `required` set always runs; nothing can be disabled or
+#   replaced by synthetic data. `optional` nodes may be on/off but are never
+#   synthetic and never safety-bearing.
+#
+# NOTE: none of this is enforced yet — robot_bringup does not implement the
+# toggles, the synthetic substitution, the safety<-drivers constraint, or the
+# production lock. See CLAUDE.md > "Deferred: robot_bringup".
+
+defaults:
+  mode: debug
+
+modes:
+  debug:
+    description: Diagnosability. Any stage may be replaced by synthetic data.
+    toggles:
+      drivers:      true    # false -> rosbag / sim bridge feeds /sensors/*
+      preproc:      true
+      detector:     true    # false -> synthetic Detection2DArray
+      geometry:     true    # false -> synthetic /perception/obstacles_3d
+      tracking:     true    # false -> synthetic /perception/tracked_obstacles
+      fusion:       true    # false -> synthetic /perception/fused_obstacles
+      safety:       true    # false ONLY allowed when drivers=false (bench/replay)
+      localization: false
+      navigation:   false
+      teleop:       true
+      diagnostics:  true
+      benchmarks:   false
+      calibration_validator: true
+
+  profile:
+    description: >
+      Performance measurement. To isolate a stage, feed it synthetic inputs but
+      keep the node being measured ON (profiling a synthetic stand-in is meaningless).
+    toggles:
+      drivers:      true
+      preproc:      true
+      detector:     true
+      geometry:     true
+      tracking:     true
+      fusion:       true
+      safety:       true
+      localization: true
+      navigation:   true
+      teleop:       true
+      diagnostics:  true
+      benchmarks:   true    # the profiling instrument
+      calibration_validator: true
+
+  production:
+    description: Complete, fixed, locked stack. No toggles, no synthetic data.
+    locked: true
+    required:
+      - drivers
+      - preproc
+      - detector
+      - geometry
+      - tracking
+      - fusion
+      - safety
+      - localization
+      - navigation
+      - teleop
+      - diagnostics
+    optional:               # on/off allowed; never synthetic; never safety-bearing
+      - benchmarks
+      - calibration_validator

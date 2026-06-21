@@ -18,8 +18,3 @@ instrumentation_modes:
     enable_topic_validation: false
     enable_cuda_timing: false
     export_metrics: false
-
-unsupported_modes:
-  jetson_simulation_runtime:
-    supported: false
-    reason: Simulation is outside this Jetson robot repository.

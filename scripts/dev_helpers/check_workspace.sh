@@ -12,7 +12,6 @@ fi
 
 host_packages=(
   amr_interfaces
-  base_interface
   benchmarks
   evaluation_tools
   localization_mapping

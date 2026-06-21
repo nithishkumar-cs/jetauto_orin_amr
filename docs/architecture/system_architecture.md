@@ -3,7 +3,7 @@
 `jetauto_orin_amr` is organized as a layered ROS 2 workspace:
 
 1. System orchestration: `robot_bringup` under `src/robot_bringup`.
-2. Platform integration: `base_interface`, `sensor_drivers`, `tf_and_calibration`.
+2. Platform integration: `sensor_drivers`, `tf_and_calibration`, plus hardware drivers and simulator bridges as needed.
 3. High-performance perception: `cuda_common`, `perception_preproc`, `perception_inference`.
 4. Robotics interpretation: `perception_geometry`, `tracking_fusion`, `sensor_fusion`.
 5. Safety and operations: `safety_layer`, `navigation_tasks`, `logging_and_diagnostics`.
@@ -22,7 +22,7 @@ RGB/depth camera
   -> tracking_fusion
   -> sensor_fusion
   -> safety_layer
-  -> base_interface
+  -> base driver or simulator bridge
 ```
 
 The detector node accepts backend names (`debug`, `yolo_tensorrt`, `rf_detr_tensorrt`) without changing downstream topics. That makes RF-DETR an implementation swap plus benchmark comparison, not a graph redesign.

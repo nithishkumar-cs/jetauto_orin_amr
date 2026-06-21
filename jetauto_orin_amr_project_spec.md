@@ -400,9 +400,14 @@ src/
   robot_bringup/
 
   platform/
-    base_interface/
     sensor_drivers/
     tf_and_calibration/
+
+  drivers/
+    jetauto_base_driver/
+
+  bridges/
+    isaac_bridge/
 
   perception/
     cuda_common/
@@ -603,9 +608,9 @@ Responsibilities:
 
 This package should fail early if required resources are missing.
 
-### 13.2 `platform/base_interface`
+### 13.2 `drivers/jetauto_base_driver`
 
-Purpose: bridge between the Jetson and the JetAuto low-level robot controller.
+Purpose: bridge between ROS and the JetAuto low-level base controller.
 
 Responsibilities:
 
@@ -615,7 +620,7 @@ Responsibilities:
 - publish controller health
 - detect stale or dropped controller communication
 
-IMU note: if IMU data physically arrives through the base controller, the transport can live near `base_interface`, but the logical output should still be exposed as a standard IMU sensor topic.
+IMU note: if IMU data physically arrives through the base controller, the transport can live near the base driver, but the logical output should still be exposed as a standard IMU sensor topic.
 
 ### 13.3 `platform/sensor_drivers`
 
@@ -986,7 +991,7 @@ JetAuto sensors/base
   -> localization/localization_mapping
   -> safety/safety_layer
   -> navigation/navigation_tasks
-  -> platform/base_interface
+  -> drivers/jetauto_base_driver
 ```
 
 ### 15.2 Replay path
@@ -1170,7 +1175,7 @@ Deliverables:
 Build first:
 
 1. `robot_bringup`
-2. `platform/base_interface`
+2. `drivers/jetauto_base_driver`
 3. `navigation/teleop_tools`
 4. `platform/sensor_drivers`
 

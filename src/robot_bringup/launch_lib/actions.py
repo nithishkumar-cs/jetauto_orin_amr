@@ -15,7 +15,7 @@ def build_actions(resolved: ResolvedConfig) -> list:
             msg=(
                 f"robot_bringup mode={resolved.instrumentation_mode} "
                 f"config_set={resolved.config_set_name} detector={resolved.detector_backend} "
-                f"base={resolved.enable_base_interface} sensors={resolved.enable_sensor_drivers} "
+                f"sensors={resolved.enable_sensor_drivers} "
                 f"depth={resolved.enable_depth_pipeline} localization={resolved.enable_localization} "
                 f"navigation={resolved.enable_navigation_tasks}"
             )
@@ -38,18 +38,6 @@ def build_actions(resolved: ResolvedConfig) -> list:
                     ("camera_info", "/sensors/rgb/camera_info"),
                     ("health", "/diagnostics/rgb_camera/health"),
                 ],
-                arguments=node_arguments,
-            )
-        )
-
-    if resolved.enable_base_interface:
-        actions.append(
-            Node(
-                package="base_interface",
-                executable="jetauto_base_interface_node",
-                name="jetauto_base_interface_node",
-                output="screen",
-                parameters=[args["base_params"], {"transport_mode": resolved.base_transport_mode}],
                 arguments=node_arguments,
             )
         )

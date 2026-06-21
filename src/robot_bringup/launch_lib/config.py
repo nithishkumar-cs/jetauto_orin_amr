@@ -15,7 +15,6 @@ class ResolvedConfig:
     detector_backend: str
     detector_params: Path
     log_level: str
-    enable_base_interface: bool
     enable_sensor_drivers: bool
     enable_preproc: bool
     enable_depth_pipeline: bool
@@ -23,7 +22,6 @@ class ResolvedConfig:
     enable_localization: bool
     enable_navigation_tasks: bool
     enable_benchmarks: bool
-    base_transport_mode: str
     localization_mode: str
     health_topics: list[str]
 
@@ -60,7 +58,6 @@ def validate_required_files(args: dict) -> None:
         Path(args["robot_profile_config"]),
         Path(args["topic_contracts_config"]),
         Path(args["calibration_manifest"]),
-        Path(args["base_params"]),
         Path(args["camera_params"]),
         Path(args["preproc_params"]),
         Path(args["geometry_params"]),
@@ -130,9 +127,6 @@ def resolve_config(context) -> ResolvedConfig:
     if not detector_params.exists():
         raise RuntimeError(f"Detector params file is missing: {detector_params}")
 
-    enable_base_interface = resolve_toggle(
-        args["enable_base_interface"], mode_defaults.get("enable_base_interface", False), "enable_base_interface"
-    )
     enable_sensor_drivers = resolve_toggle(
         args["enable_sensor_drivers"], mode_defaults.get("enable_sensor_drivers", False), "enable_sensor_drivers"
     )
@@ -155,7 +149,6 @@ def resolve_config(context) -> ResolvedConfig:
         args["enable_benchmarks"], mode_defaults.get("enable_benchmarks", False), "enable_benchmarks"
     )
 
-    base_transport_mode = resolve_string(args["base_transport_mode"], mode_defaults.get("base_transport_mode", "stub"))
     localization_mode = resolve_string(args["localization_mode"], mode_defaults.get("localization_mode", "mapping"))
     if localization_mode not in ("mapping", "navigation"):
         raise RuntimeError(f"Unsupported localization_mode '{localization_mode}'.")
@@ -173,8 +166,6 @@ def resolve_config(context) -> ResolvedConfig:
             "/diagnostics/tracking/health",
             "/diagnostics/fusion/health",
         ])
-    if enable_base_interface:
-        health_topics.append("/diagnostics/base/health")
 
     return ResolvedConfig(
         args=args,
@@ -183,7 +174,6 @@ def resolve_config(context) -> ResolvedConfig:
         detector_backend=detector_backend,
         detector_params=detector_params,
         log_level=runtime_mode.get("log_level", "info"),
-        enable_base_interface=enable_base_interface,
         enable_sensor_drivers=enable_sensor_drivers,
         enable_preproc=enable_preproc,
         enable_depth_pipeline=enable_depth_pipeline,
@@ -191,7 +181,6 @@ def resolve_config(context) -> ResolvedConfig:
         enable_localization=enable_localization,
         enable_navigation_tasks=enable_navigation_tasks,
         enable_benchmarks=enable_benchmarks,
-        base_transport_mode=base_transport_mode,
         localization_mode=localization_mode,
         health_topics=health_topics,
     )

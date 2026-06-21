@@ -6,7 +6,6 @@ from launch_lib.paths import package_file, share_path
 ARGUMENT_NAMES = [
     "instrumentation_mode",
     "detector_backend",
-    "enable_base_interface",
     "enable_sensor_drivers",
     "enable_preproc",
     "enable_depth_pipeline",
@@ -16,13 +15,11 @@ ARGUMENT_NAMES = [
     "enable_benchmarks",
     "localization_mode",
     "map_file",
-    "base_transport_mode",
     "system_modes_config",
     "runtime_modes_config",
     "robot_profile_config",
     "topic_contracts_config",
     "calibration_manifest",
-    "base_params",
     "camera_params",
     "preproc_params",
     "detector_params",
@@ -47,7 +44,6 @@ def declared_arguments() -> list:
     return [
         DeclareLaunchArgument("instrumentation_mode", default_value="auto"),
         DeclareLaunchArgument("detector_backend", default_value="auto"),
-        DeclareLaunchArgument("enable_base_interface", default_value="auto"),
         DeclareLaunchArgument("enable_sensor_drivers", default_value="auto"),
         DeclareLaunchArgument("enable_preproc", default_value="auto"),
         DeclareLaunchArgument("enable_depth_pipeline", default_value="auto"),
@@ -57,7 +53,6 @@ def declared_arguments() -> list:
         DeclareLaunchArgument("enable_benchmarks", default_value="auto"),
         DeclareLaunchArgument("localization_mode", default_value="auto"),
         DeclareLaunchArgument("map_file", default_value=""),
-        DeclareLaunchArgument("base_transport_mode", default_value="auto"),
         DeclareLaunchArgument("system_modes_config", default_value=str(bringup_share / "system_modes.yaml")),
         DeclareLaunchArgument(
             "runtime_modes_config",
@@ -74,10 +69,6 @@ def declared_arguments() -> list:
         DeclareLaunchArgument(
             "calibration_manifest",
             default_value=str(project_config_root / "calibration" / "calibration_manifest.yaml"),
-        ),
-        DeclareLaunchArgument(
-            "base_params",
-            default_value=str(package_file("base_interface", "config", "base_interface.yaml")),
         ),
         DeclareLaunchArgument(
             "camera_params",

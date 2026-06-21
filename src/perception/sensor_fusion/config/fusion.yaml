@@ -1,6 +1,0 @@
-obstacle_fusion_node:
-  ros__parameters:
-    input_topic: /perception/tracked_obstacles
-    output_topic: /perception/fused_obstacles
-    stale_input_timeout_s: 0.50
-
