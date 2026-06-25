@@ -12,10 +12,14 @@ decisions below.
   perception platform safety tools`. (Empty dirs are not tracked by git — add a
   `.gitkeep` per folder if you want the skeleton versioned.)
 - **`robot_bringup` is kept but is BROKEN-ON-LAUNCH by design** — see *Deferred* below.
-- **`amr_interfaces` was nuked too.** The message contracts (`Obstacle`,
-  `ObstacleArray`, `Detection2D`, `NodeHealth`, `SafetyState`) must be **redefined**
-  as part of the rebuild. They are the shared vocabulary every package depends on —
-  rebuild this first.
+- **`amr_interfaces` rebuilt (DONE, standards-first).** Lives at
+  `src/platform/amr_interfaces`. Defines only the 3 custom contracts ROS has no
+  standard for — `TrackedObstacle`, `TrackedObstacleArray`, `SafetyState`.
+  Everything else uses standards: detection → `vision_msgs/Detection2DArray` +
+  `Detection3DArray`; health → `diagnostic_msgs`; e-stop → `std_msgs/Bool`;
+  odometry → `nav_msgs`. Builds + message generation verified (needs
+  `ros-humble-vision-msgs` installed). `TrackedObstacle` has no per-obstacle
+  header — frame/stamp come from the array header (base_link).
 - **`system_modes.yaml` was moved** out of the package to
   `configs/runtime_modes/system_modes.yaml` (sibling of `runtime_modes.yaml`).
 
@@ -66,3 +70,8 @@ Fill nodes and topics one by one. Per package: extract a pure core library + gte
 (unit-level), then wire the thin ROS node, then integrate. Keep core packages
 source-agnostic. Build/test per package with `colcon build|test --packages-up-to <pkg>`.
 Use ROS Humble: `source /opt/ros/humble/setup.bash`.
+
+**Progress:** `amr_interfaces` DONE. Next package is open — strong candidates:
+`safety_layer` (settled location, fully unit-testable policy core, depends only on
+amr_interfaces, no upstream needed — feed synthetic obstacles) or start the data path
+at `sensor_drivers` (note: re-opens the platform-vs-drivers placement decision).
