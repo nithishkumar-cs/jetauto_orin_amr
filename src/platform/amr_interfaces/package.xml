@@ -7,7 +7,7 @@
     no standard for (tracked obstacles with velocity, and the safety verdict).
     Detection uses vision_msgs; health uses diagnostic_msgs.
   </description>
-  <maintainer email="nithish@example.com">Nithish</maintainer>
+  <maintainer email="nithishk.ips@gmail.com">Nithish</maintainer>
   <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

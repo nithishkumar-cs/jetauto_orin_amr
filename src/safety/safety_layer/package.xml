@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>safety_layer</name>
+  <version>0.1.0</version>
+  <description>
+    Deterministic safety command-gate for the JetAuto AMR. Split into a pure,
+    source-agnostic policy core (omnidirectional obstacle zones + e-stop +
+    worst-case combination) and a thin ROS node (added later) that gates
+    /cmd_vel into /cmd_vel/safety_limited and publishes the safety verdict.
+    This increment ships the policy core and its unit tests only.
+  </description>
+  <maintainer email="nithish@example.com">Nithish</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

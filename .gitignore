@@ -20,3 +20,4 @@ log/
 __pycache__/
 *.pyc
 core
+*.zip
