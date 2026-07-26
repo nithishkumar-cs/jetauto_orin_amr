@@ -153,8 +153,7 @@ TEST(Combine, EmptyFailsClosed)
 
 TEST(Combine, ClearAndSlowYieldsSlow)
 {
-  const auto d = combine({estop_decision(false),
-                          evaluate_obstacles({{1.0, 0.0}}, kZones)});
+  const auto d = combine({estop_decision(false), evaluate_obstacles({{1.0, 0.0}}, kZones)});
   EXPECT_EQ(d.level, SafetyLevel::SLOW);
   EXPECT_DOUBLE_EQ(d.speed_scale, 0.35);
 }
@@ -199,17 +198,17 @@ TEST(Combine, StopHeadlinesOverDegraded)
 TEST(Combine, ReportsGlobalNearest)
 {
   // nearest_obstacle_m is the min across all sources that reported one.
-  const auto a = evaluate_obstacles({{1.0, 0.0}}, kZones);   // nearest 1.0
-  const auto b = evaluate_obstacles({{0.4, 0.0}}, kZones);   // nearest 0.4
-  const auto d = combine({a, b, estop_decision(false)});     // estop has no nearest
+  const auto a = evaluate_obstacles({{1.0, 0.0}}, kZones);  // nearest 1.0
+  const auto b = evaluate_obstacles({{0.4, 0.0}}, kZones);  // nearest 0.4
+  const auto d = combine({a, b, estop_decision(false)});    // estop has no nearest
   EXPECT_DOUBLE_EQ(d.nearest_obstacle_m, 0.4);
 }
 
 TEST(Combine, AllClearStaysClear)
 {
-  const auto d = combine({estop_decision(false),
-                          evaluate_obstacles({{3.0, 0.0}}, kZones),
-                          evaluate_obstacles({}, kZones)});
+  const auto d = combine(
+    {estop_decision(false), evaluate_obstacles({{3.0, 0.0}}, kZones),
+     evaluate_obstacles({}, kZones)});
   EXPECT_EQ(d.level, SafetyLevel::CLEAR);
   EXPECT_DOUBLE_EQ(d.speed_scale, 1.0);
   EXPECT_DOUBLE_EQ(d.nearest_obstacle_m, 3.0);  // the one source that saw something

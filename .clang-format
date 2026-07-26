@@ -1,16 +1,35 @@
-BasedOnStyle: Google
+# Official ROS 2 ament_clang_format configuration.
+#
+# This project is a ROS 2 Humble workspace, and its C++ is written in ament
+# style: `const T & x`, braces on their own line after functions/namespaces,
+# un-indented namespace bodies. The previous config declared Google style with
+# PointerAlignment: Left, which contradicted every source file in the repo —
+# invisible until CI reached the format gate for the first time on 2026-07-26.
+# Keep this in sync with upstream ament_clang_format rather than customising it,
+# so future packages format the way ROS 2 developers expect.
 Language: Cpp
+BasedOnStyle: Google
 Standard: c++17
-ColumnLimit: 100
-IndentWidth: 2
-ContinuationIndentWidth: 4
-AccessModifierOffset: -1
-DerivePointerAlignment: false
-PointerAlignment: Left
-SortIncludes: true
-IncludeBlocks: Regroup
-NamespaceIndentation: All
+
+AccessModifierOffset: -2
+AlignAfterOpenBracket: AlwaysBreak
 AllowShortFunctionsOnASingleLine: Empty
+BraceWrapping:
+  AfterClass: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+BreakBeforeBraces: Custom
+ColumnLimit: 100
+ConstructorInitializerIndentWidth: 0
+ContinuationIndentWidth: 2
+DerivePointerAlignment: false
+PointerAlignment: Middle
+ReflowComments: false
+
+# Repo additions on top of upstream ament (no conflict with the above).
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
-BreakBeforeBraces: Attach
+SortIncludes: true
+IncludeBlocks: Regroup

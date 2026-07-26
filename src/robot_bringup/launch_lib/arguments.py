@@ -2,7 +2,6 @@ from launch.actions import DeclareLaunchArgument
 
 from launch_lib.paths import package_file, share_path
 
-
 ARGUMENT_NAMES = [
     "instrumentation_mode",
     "detector_backend",
@@ -53,7 +52,9 @@ def declared_arguments() -> list:
         DeclareLaunchArgument("enable_benchmarks", default_value="auto"),
         DeclareLaunchArgument("localization_mode", default_value="auto"),
         DeclareLaunchArgument("map_file", default_value=""),
-        DeclareLaunchArgument("system_modes_config", default_value=str(bringup_share / "system_modes.yaml")),
+        DeclareLaunchArgument(
+            "system_modes_config", default_value=str(bringup_share / "system_modes.yaml")
+        ),
         DeclareLaunchArgument(
             "runtime_modes_config",
             default_value=str(project_config_root / "runtime_modes" / "runtime_modes.yaml"),
@@ -81,7 +82,9 @@ def declared_arguments() -> list:
         DeclareLaunchArgument("detector_params", default_value=""),
         DeclareLaunchArgument(
             "geometry_params",
-            default_value=str(package_file("perception_geometry", "config", "depth_projection.yaml")),
+            default_value=str(
+                package_file("perception_geometry", "config", "depth_projection.yaml")
+            ),
         ),
         DeclareLaunchArgument(
             "tracking_params",
@@ -97,11 +100,15 @@ def declared_arguments() -> list:
         ),
         DeclareLaunchArgument(
             "calibration_params",
-            default_value=str(package_file("tf_and_calibration", "config", "calibration_validator.yaml")),
+            default_value=str(
+                package_file("tf_and_calibration", "config", "calibration_validator.yaml")
+            ),
         ),
         DeclareLaunchArgument(
             "health_params",
-            default_value=str(package_file("logging_and_diagnostics", "config", "health_aggregator.yaml")),
+            default_value=str(
+                package_file("logging_and_diagnostics", "config", "health_aggregator.yaml")
+            ),
         ),
         DeclareLaunchArgument(
             "latency_params",
@@ -117,7 +124,9 @@ def declared_arguments() -> list:
         ),
         DeclareLaunchArgument(
             "slam_params",
-            default_value=str(package_file("localization_mapping", "config", "slam_toolbox_async.yaml")),
+            default_value=str(
+                package_file("localization_mapping", "config", "slam_toolbox_async.yaml")
+            ),
         ),
         DeclareLaunchArgument(
             "nav2_params",

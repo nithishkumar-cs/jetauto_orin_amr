@@ -28,13 +28,12 @@ namespace safety_layer
 /// so static_cast<uint8_t>(level) is the on-the-wire state value. Do NOT use
 /// this numeric order for priority — it is the message contract, not a ranking.
 /// Reporting priority is a separate concern, see report_rank().
-enum class SafetyLevel : uint8_t
-{
+enum class SafetyLevel : uint8_t {
   CLEAR = 0,            ///< nothing in range; full speed
-  SLOW = 1,            ///< obstacle in the slow zone; throttle to slow_scale
-  STOP = 2,            ///< obstacle in the stop zone; zero velocity
-  ESTOP = 3,           ///< e-stop engaged; zero velocity
-  SENSOR_DEGRADED = 4, ///< a required safety input is stale/untrusted; fail-closed
+  SLOW = 1,             ///< obstacle in the slow zone; throttle to slow_scale
+  STOP = 2,             ///< obstacle in the stop zone; zero velocity
+  ESTOP = 3,            ///< e-stop engaged; zero velocity
+  SENSOR_DEGRADED = 4,  ///< a required safety input is stale/untrusted; fail-closed
 };
 
 /// An obstacle sample in the base frame (e.g. base_link), metres.
@@ -64,9 +63,9 @@ struct RadialZones
 struct Decision
 {
   SafetyLevel level{SafetyLevel::CLEAR};
-  double speed_scale{1.0};        ///< 1.0 = full speed, 0.0 = full stop
+  double speed_scale{1.0};  ///< 1.0 = full speed, 0.0 = full stop
   std::string reason{"clear"};
-  double nearest_obstacle_m{-1.0}; ///< closest sample distance, or -1.0 if none
+  double nearest_obstacle_m{-1.0};  ///< closest sample distance, or -1.0 if none
 };
 
 /// Reporting priority for worst-case combination. Higher wins the headline when

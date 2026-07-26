@@ -29,7 +29,10 @@ jobs:
             ripgrep \
             ros-humble-ament-cmake-gtest \
             ros-humble-vision-msgs
-          python3 -m pip install --user black
+          # Pinned: an unpinned black silently reformats when upstream changes
+          # its style, turning a green gate red with no local change.
+          # clang-format comes from apt and is pinned by the ubuntu-22.04 image (v14).
+          python3 -m pip install --user black==26.5.1
 
       - name: Check formatting
         run: scripts/dev_helpers/format_workspace.sh --check

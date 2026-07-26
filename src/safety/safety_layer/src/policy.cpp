@@ -1,3 +1,4 @@
+
 #include "safety_layer/policy.hpp"
 
 #include <algorithm>
@@ -10,11 +11,16 @@ namespace safety_layer
 int report_rank(SafetyLevel level)
 {
   switch (level) {
-    case SafetyLevel::CLEAR:           return 0;
-    case SafetyLevel::SLOW:            return 1;
-    case SafetyLevel::SENSOR_DEGRADED: return 2;
-    case SafetyLevel::STOP:            return 3;
-    case SafetyLevel::ESTOP:           return 4;
+    case SafetyLevel::CLEAR:
+      return 0;
+    case SafetyLevel::SLOW:
+      return 1;
+    case SafetyLevel::SENSOR_DEGRADED:
+      return 2;
+    case SafetyLevel::STOP:
+      return 3;
+    case SafetyLevel::ESTOP:
+      return 4;
   }
   return 0;  // unreachable; keeps the compiler quiet
 }
@@ -74,7 +80,7 @@ Decision combine(const std::vector<Decision> & decisions)
     return {SafetyLevel::SENSOR_DEGRADED, 0.0, "no safety inputs", -1.0};
   }
 
-  Decision out = decisions.front();          // wins the headline unless out-ranked
+  Decision out = decisions.front();  // wins the headline unless out-ranked
   double min_scale = decisions.front().speed_scale;
   double nearest = -1.0;
 
@@ -84,7 +90,7 @@ Decision combine(const std::vector<Decision> & decisions)
       nearest = (nearest < 0.0) ? d.nearest_obstacle_m : std::min(nearest, d.nearest_obstacle_m);
     }
     if (report_rank(d.level) > report_rank(out.level)) {
-      out = d;                                // adopt the higher-priority headline
+      out = d;  // adopt the higher-priority headline
     }
   }
 

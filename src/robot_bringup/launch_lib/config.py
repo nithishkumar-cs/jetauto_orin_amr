@@ -107,7 +107,9 @@ def resolve_config(context) -> ResolvedConfig:
     if instrumentation_mode not in config_set_by_mode:
         raise RuntimeError(f"Unknown instrumentation_mode '{instrumentation_mode}'.")
     if instrumentation_mode not in runtime_modes["instrumentation_modes"]:
-        raise RuntimeError(f"runtime_modes.yaml is missing instrumentation mode '{instrumentation_mode}'.")
+        raise RuntimeError(
+            f"runtime_modes.yaml is missing instrumentation mode '{instrumentation_mode}'."
+        )
 
     config_set_name = config_set_by_mode[instrumentation_mode]
     if config_set_name not in system_modes["config_sets"]:
@@ -120,36 +122,54 @@ def resolve_config(context) -> ResolvedConfig:
     if detector_backend == "auto":
         detector_backend = mode_defaults.get(
             "detector_backend",
-            system_modes["defaults"].get("detector_backend_defaults", {}).get(instrumentation_mode, "debug"),
+            system_modes["defaults"]
+            .get("detector_backend_defaults", {})
+            .get(instrumentation_mode, "debug"),
         )
 
-    detector_params = Path(args["detector_params"]) if args["detector_params"] else detector_config_for_backend(detector_backend)
+    detector_params = (
+        Path(args["detector_params"])
+        if args["detector_params"]
+        else detector_config_for_backend(detector_backend)
+    )
     if not detector_params.exists():
         raise RuntimeError(f"Detector params file is missing: {detector_params}")
 
     enable_sensor_drivers = resolve_toggle(
-        args["enable_sensor_drivers"], mode_defaults.get("enable_sensor_drivers", False), "enable_sensor_drivers"
+        args["enable_sensor_drivers"],
+        mode_defaults.get("enable_sensor_drivers", False),
+        "enable_sensor_drivers",
     )
     enable_preproc = resolve_toggle(
         args["enable_preproc"], mode_defaults.get("enable_preproc", True), "enable_preproc"
     )
     enable_depth_pipeline = resolve_toggle(
-        args["enable_depth_pipeline"], mode_defaults.get("enable_depth_pipeline", False), "enable_depth_pipeline"
+        args["enable_depth_pipeline"],
+        mode_defaults.get("enable_depth_pipeline", False),
+        "enable_depth_pipeline",
     )
     enable_teleop = resolve_toggle(
         args["enable_teleop"], mode_defaults.get("enable_teleop", False), "enable_teleop"
     )
     enable_localization = resolve_toggle(
-        args["enable_localization"], mode_defaults.get("enable_localization", False), "enable_localization"
+        args["enable_localization"],
+        mode_defaults.get("enable_localization", False),
+        "enable_localization",
     )
     enable_navigation_tasks = resolve_toggle(
-        args["enable_navigation_tasks"], mode_defaults.get("enable_navigation_tasks", False), "enable_navigation_tasks"
+        args["enable_navigation_tasks"],
+        mode_defaults.get("enable_navigation_tasks", False),
+        "enable_navigation_tasks",
     )
     enable_benchmarks = resolve_toggle(
-        args["enable_benchmarks"], mode_defaults.get("enable_benchmarks", False), "enable_benchmarks"
+        args["enable_benchmarks"],
+        mode_defaults.get("enable_benchmarks", False),
+        "enable_benchmarks",
     )
 
-    localization_mode = resolve_string(args["localization_mode"], mode_defaults.get("localization_mode", "mapping"))
+    localization_mode = resolve_string(
+        args["localization_mode"], mode_defaults.get("localization_mode", "mapping")
+    )
     if localization_mode not in ("mapping", "navigation"):
         raise RuntimeError(f"Unsupported localization_mode '{localization_mode}'.")
     if enable_localization and localization_mode == "navigation" and not args["map_file"]:
@@ -161,11 +181,13 @@ def resolve_config(context) -> ResolvedConfig:
     if enable_preproc:
         health_topics.append("/diagnostics/preproc/health")
     if enable_depth_pipeline:
-        health_topics.extend([
-            "/diagnostics/geometry/health",
-            "/diagnostics/tracking/health",
-            "/diagnostics/fusion/health",
-        ])
+        health_topics.extend(
+            [
+                "/diagnostics/geometry/health",
+                "/diagnostics/tracking/health",
+                "/diagnostics/fusion/health",
+            ]
+        )
 
     return ResolvedConfig(
         args=args,
