@@ -10,20 +10,12 @@ if [ -f "/opt/ros/${ROS_DISTRO}/setup.bash" ]; then
   set -u
 fi
 
+# Packages buildable on a plain x86 host (no CUDA/Jetson hardware).
+# Trimmed to the post-reset tree; add each package back here as it is rebuilt.
+# Keep GPU-only packages (e.g. perception_inference) out of this list.
 host_packages=(
   amr_interfaces
-  benchmarks
-  evaluation_tools
-  localization_mapping
-  logging_and_diagnostics
-  navigation_tasks
-  perception_geometry
   safety_layer
-  sensor_drivers
-  sensor_fusion
-  teleop_tools
-  tf_and_calibration
-  tracking_fusion
 )
 
 build_args=(--merge-install --symlink-install)

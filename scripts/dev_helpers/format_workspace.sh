@@ -12,6 +12,14 @@ if [[ "${mode}" == "check" || "${mode}" == "--check" ]]; then
   check=1
 fi
 
+# File discovery below runs rg inside a process substitution, where a failure
+# would leave mapfile with zero files and exit 0 — a format gate that silently
+# passes without checking anything. Fail loudly instead.
+if ! command -v rg >/dev/null 2>&1; then
+  echo "ripgrep (rg) is required for file discovery." >&2
+  exit 3
+fi
+
 mapfile -t cpp_files < <(
   rg --files \
     -g '*.cpp' \
