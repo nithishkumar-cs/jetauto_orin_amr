@@ -5,6 +5,7 @@ log/
 .cache/
 .git.previous*/
 .vscode/*.log
+.claude/settings.local.json
 *.bag
 *.db3
 *.mcap
