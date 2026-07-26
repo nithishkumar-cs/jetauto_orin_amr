@@ -2,7 +2,7 @@
 
 `jetauto_orin_amr` is organized as a layered ROS 2 workspace:
 
-1. System orchestration: `robot_bringup` under `src/robot_bringup`.
+1. System orchestration: `robot_bringup` under `src/orchestration/robot_bringup`.
 2. Platform integration: `sensor_drivers`, `tf_and_calibration`, plus hardware drivers and simulator bridges as needed.
 3. High-performance perception: `cuda_common`, `perception_preproc`, `perception_inference`.
 4. Robotics interpretation: `perception_geometry`, `tracking_fusion`, `sensor_fusion`.
