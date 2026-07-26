@@ -27,7 +27,7 @@ decisions below.
 
 - `platform` — shared message contracts (`amr_interfaces`) + TF/calibration foundation. Source-agnostic; no algorithms. *(Dissolution pending — see Pending decisions.)*
 - `perception` — camera → detection → depth-projection → tracking → fusion → `/perception/fused_obstacles`.
-- `safety` — deterministic command gate. Consumes obstacle sources + e-stop; publishes `/cmd_vel/safety_limited`.
+- `safety` — command gate. **Obstacle zones are `nav2_collision_monitor` (upstream), not our code**; `safety_gate` holds only the latching e-stop, which collision_monitor has no input for. Chain: `/cmd_vel` → e-stop latch → `/cmd_vel_raw` → collision_monitor → `/cmd_vel/safety_limited`.
 - `localization` — SLAM / localization & mapping.
 - `navigation` — nav tasks + teleop relay.
 - `drivers` — real hardware IO. Consumes `/cmd_vel/safety_limited`, publishes `/odom/wheel`.
@@ -41,7 +41,9 @@ decisions below.
 - **Source-agnostic core.** Hardware/sim/bag detail only at the edges (`drivers` / `bridges` / `rosbag`). Core packages never know the data source.
 - **`base_interface` retired.** Motion contract: safety → `/cmd_vel/safety_limited` → driver/bridge → `/odom/wheel`. Any shared base math (mecanum IK / odometry / watchdog) that ends up duplicated goes in a **library**, never a resurrected node.
 - **Safety is independent of navigation.** Separate, simple, trustworthy last-resort. It subscribes directly to obstacle sources, NOT to the map/planner.
-- **Safety is multi-input, worst-case combined** ("anything screaming danger wins"): multiple obstacle topics + an e-stop. Detection-only obstacles are fail-open (blind to untrained objects) — add a class-agnostic geometric source (lidar/sonar) on the safety path. *(Was implemented before the reset; rebuild it: `evaluate_obstacles` + `estop_decision` + `combine_decisions` pure core, multi-source node.)*
+- **Safety is multi-input, worst-case combined** ("anything screaming danger wins"). Detection-only obstacles are fail-open (blind to untrained objects) — a class-agnostic geometric source (lidar/sonar) must be on the safety path; do not let a depth-camera `pointcloud` source replace it.
+- **Use `nav2_collision_monitor` for obstacle zones; do not write our own.** *(Decided 2026-07-26, replacing the hand-written radial policy.)* It is maintained upstream and strictly better: arbitrary polygons instead of circles, `scan`/`pointcloud`/`range` sources, built-in `source_timeout`, `base_shift_correction`, `stop_pub_timeout`, and it publishes `nav2_msgs/CollisionMonitorState`. It runs standalone, so this does not couple safety to navigation. **Two traps:** it has *no e-stop input whatsoever* (only observation sources, `cmd_vel`, footprint), and it is a **lifecycle node** — launched alone it logs "Waiting on external lifecycle transitions" and gates nothing while still looking healthy in `ros2 node list`. It needs `nav2_lifecycle_manager` with `autostart: true`.
+- **NOT a safety-rated system, and must never be described as one.** ISO 3691-4 requires functional-safety-rated area protection: a scanner certified to IEC 61496 Type 3 / SIL 2 / PL d Cat 3 whose OSSD outputs drive a safety relay or safety PLC that cuts motor power **in hardware**, with no computer in the path. Navigation data off that scanner is informational only. Everything we run is a supervisory software layer on Linux over DDS. JetAuto has no safety-rated hardware, so the honest label is "collision avoidance and an operator stop". Adding a real safety layer is a hardware purchase, not a software task.
 - **Component tiers.** REQUIRED core (sensors / perception / safety / motion) is locked in production. OPTIONAL instrumentation (benchmarks, diagnostics, calibration_validator) is a free toggle. VARIANT selectors (teleop / localization / navigation, and the sensor suite) are chosen among *validated* combinations, not free toggles. A specific sensor (e.g. lidar) is required only if it's needed to meet the minimum sensing contract; otherwise it's a variant choice (camera-only vs camera+lidar), each with its own validated speed/stop envelope.
 - **Modes** (kept: `debug` + `profile` + `production`). `debug`/`profile` have per-node toggles where `false` ⇒ synthetic substitution; `production` is locked (no toggles). Mode *behavior* (log/assert/timing/metrics) lives in `runtime_modes.yaml`. **Constraint: `safety` may be `false` only when `drivers` is `false`.**
 - **Config homes.** Per-package `config/` = node default params; top-level `configs/` = deployment/robot config + mode config. Everything is read from the *installed* share path, so `--symlink-install` (or overriding the path launch-arg) is what makes edits live without a rebuild — location does not change that.
@@ -90,26 +92,34 @@ Use ROS Humble: `source /opt/ros/humble/setup.bash`.
   severity (`CLEAR < SLOW < SENSOR_DEGRADED < STOP < ESTOP`) so a plain numeric
   compare picks the correct headline — one ordering serves the wire contract and
   the priority ranking.
-- `safety_gate` (renamed from `safety_layer` on 2026-07-26) — **policy core
-  DONE**, 36 tests.
-  Memoryless primitives (`evaluate_obstacles` / `estop_decision` /
-  `degraded_decision` / `combine`) plus stateful `step()`, which adds latched
-  e-stop (explicit operator reset required), zone hysteresis, and source
-  staleness. State is *passed*, never *held*: `step(inputs, prev_state, params)`
-  returns the next state, so there is no clock and no member variable, and it
-  stays deterministic. The node does not exist yet — that is the next increment.
+- `safety_gate` (renamed from `safety_layer` on 2026-07-26) — **e-stop latch
+  only**, 8 tests. The radial-zone policy that used to live here was deleted in
+  favour of `nav2_collision_monitor`; the latch survives because
+  collision_monitor has no e-stop input. `update_estop(prev, engaged, reset)`:
+  engaging always latches, a reset clears it only once the signal has released,
+  so a dropped packet cannot restart the robot. ROS-free purely so the tests
+  need no fixtures — that is a testing convenience, **not** a safety property.
+  **No node yet.**
+- `collision_monitor` — **WIRED AND VERIFIED ACTIVE.** Config at
+  `configs/safety/collision_monitor.yaml`, launched by bringup together with its
+  lifecycle manager. Publishes `/cmd_vel/safety_limited`, `/safety/zone_stop`,
+  `/safety/zone_slow`; consumes `/cmd_vel_raw`. It has **no observation source
+  publishing yet** — `/scan` is declared but no driver exists — so it currently
+  gates nothing.
 - `robot_bringup` rebuilt; see above.
 
-**Next:** the `safety_gate` ROS node — subscribe obstacle sources + e-stop +
-`/cmd_vel`, measure message ages, call `step()`, publish
-`/cmd_vel/safety_limited` and `SafetyState`. It needs an upstream obstacle
-source to be useful, so either feed it synthetic obstacles or start the data
-path at `sensor_drivers` (note: re-opens the platform-vs-drivers decision).
+**Next:** the `safety_gate` e-stop node — subscribe `/cmd_vel` + e-stop + reset,
+call `update_estop`, republish to `/cmd_vel_raw`. Then `sensor_drivers` for the
+lidar, which is what makes collision_monitor do anything at all (note: re-opens
+the platform-vs-drivers decision).
 
-**Known fail-open holes in `safety_gate` (not yet fixed):** `RadialZones` params
-are never validated — NaN radii make every comparison false and report CLEAR at
-full speed while simultaneously reporting a 10 cm obstacle. NaN points in a cloud
-are silently dropped, so an all-invalid depth frame reads as "saw nothing"
-rather than "saw nothing usable". Obstacles are points, not volumes, so whoever
-writes the node must decide centroid vs nearest-extent — centroid under-reports
-for large objects.
+**Open contract question:** `amr_interfaces/SafetyState` is now orphaned —
+collision_monitor publishes `nav2_msgs/CollisionMonitorState` (action_type +
+polygon_name only) and nothing publishes ours. Either delete `SafetyState`, or
+have the e-stop node publish it as the aggregated view. Its `SLOW`/`STOP`/
+`SENSOR_DEGRADED` constants have no producer either way.
+
+**Unvalidated:** the zone sizes in `collision_monitor.yaml` (stop 0.55 m, slow
+1.25 m, 35% throttle) were carried over from the old radial design and have
+never been measured against real stopping distance. Measure it at max speed and
+set the stop zone larger, with margin, before trusting them.

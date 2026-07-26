@@ -1,0 +1,93 @@
+# nav2_collision_monitor — the obstacle-zone half of the software safety chain.
+#
+# This replaces the radial-zone policy that safety_gate used to implement.
+# collision_monitor is maintained upstream and does more: arbitrary polygons
+# rather than circles, scan/pointcloud/range sources, and a built-in
+# source_timeout so a silent sensor is handled without extra code.
+#
+# Chain:
+#   /cmd_vel --> safety_gate (e-stop latch) --> /cmd_vel_raw
+#            --> collision_monitor          --> /cmd_vel/safety_limited
+#            --> driver
+#
+# NOT a safety-rated function. See ISO 3691-4: a certified stop is a scanner
+# meeting IEC 61496 Type 3 wired to a safety relay, with no computer in the
+# path. This runs on Linux over DDS and is collision avoidance, nothing more.
+#
+# Zone values below carry over the old radial design (stop 0.55 m, slow 1.25 m,
+# 35% throttle) as SQUARE polygons, which is the closest shape collision_monitor
+# offers for stop/slowdown. JetAuto is a holonomic mecanum base, so the zones
+# deliberately surround the robot on all sides rather than forming a forward
+# corridor — it can strafe and reverse into things.
+#
+# UNVALIDATED: these numbers were never measured against real stopping distance.
+# Before trusting them, measure actual stopping distance at max speed and set
+# the stop zone larger than that, with margin.
+
+# collision_monitor is a nav2 LIFECYCLE node. Started on its own it logs
+# "Waiting on external lifecycle transitions to activate" and then does nothing
+# at all — it never subscribes and never gates cmd_vel. The lifecycle manager
+# below is what drives it to `active`; without it the node is inert while
+# looking perfectly healthy in `ros2 node list`.
+lifecycle_manager_safety:
+  ros__parameters:
+    autostart: true
+    node_names: ["collision_monitor"]
+    bond_timeout: 4.0
+    attempt_respawn_reconnection: true
+
+collision_monitor:
+  ros__parameters:
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+
+    cmd_vel_in_topic: "cmd_vel_raw"
+    cmd_vel_out_topic: "cmd_vel/safety_limited"
+
+    transform_tolerance: 0.2
+    # A source silent for longer than this stops being trusted. This is the
+    # feature that replaces the staleness handling safety_gate used to do.
+    source_timeout: 0.3
+    base_shift_correction: True
+    # Keep publishing the stop command for this long after a trigger clears,
+    # so a stop is not undone by a single stale message.
+    stop_pub_timeout: 2.0
+
+    polygons: ["StopZone", "SlowZone"]
+
+    StopZone:
+      type: "polygon"
+      # +/-0.55 m box around base_link.
+      points: [0.55, 0.55, 0.55, -0.55, -0.55, -0.55, -0.55, 0.55]
+      action_type: "stop"
+      max_points: 3
+      visualize: True
+      polygon_pub_topic: "safety/zone_stop"
+      enabled: True
+
+    SlowZone:
+      type: "polygon"
+      # +/-1.25 m box around base_link.
+      points: [1.25, 1.25, 1.25, -1.25, -1.25, -1.25, -1.25, 1.25]
+      action_type: "slowdown"
+      slowdown_ratio: 0.35
+      max_points: 3
+      visualize: True
+      polygon_pub_topic: "safety/zone_slow"
+      enabled: True
+
+    # The lidar is declared here even though no driver publishes /scan yet: an
+    # empty observation_sources list is not a valid parameter value (rclcpp
+    # cannot infer the type and the node aborts on startup), and declaring the
+    # intended wiring now is better than leaving it out.
+    #
+    # Detection-only sources are fail-open — blind to anything the detector was
+    # not trained on — so the class-agnostic geometric source (lidar) is the one
+    # that has to be on this path. Add the depth camera as a second
+    # `pointcloud` source when perception returns; do not let it replace lidar.
+    observation_sources: ["scan"]
+
+    scan:
+      type: "scan"
+      topic: "/scan"
+      enabled: True

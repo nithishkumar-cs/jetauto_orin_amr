@@ -13,14 +13,14 @@ find_package(ament_cmake REQUIRED)
 
 # --- Pure policy core: no ROS dependencies, deliberately. -------------------
 # The ROS node (added in a later increment) will link this library.
-add_library(safety_policy src/policy.cpp)
-target_include_directories(safety_policy PUBLIC
+add_library(safety_estop src/estop.cpp)
+target_include_directories(safety_estop PUBLIC
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
   "$<INSTALL_INTERFACE:include>")
-target_compile_features(safety_policy PUBLIC cxx_std_17)
+target_compile_features(safety_estop PUBLIC cxx_std_17)
 
 install(
-  TARGETS safety_policy
+  TARGETS safety_estop
   EXPORT export_safety_gate
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -29,11 +29,11 @@ install(DIRECTORY include/ DESTINATION include)
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
-  ament_add_gtest(test_policy test/test_policy.cpp)
-  target_link_libraries(test_policy safety_policy)
+  ament_add_gtest(test_estop test/test_estop.cpp)
+  target_link_libraries(test_estop safety_estop)
 endif()
 
 ament_export_include_directories(include)
-ament_export_libraries(safety_policy)
+ament_export_libraries(safety_estop)
 ament_export_targets(export_safety_gate HAS_LIBRARY_TARGET)
 ament_package()

@@ -26,6 +26,16 @@ def package_available(package_name: str) -> bool:
     return True
 
 
+def project_config(*parts: str) -> Path:
+    """A file under the installed copy of the top-level configs/ directory.
+
+    configs/ is installed wholesale as share/robot_bringup/project_configs, so
+    with --symlink-install these resolve back to the source tree and edits are
+    live without a rebuild.
+    """
+    return package_file("robot_bringup", "project_configs", *parts)
+
+
 def read_yaml(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as handle:
         return yaml.safe_load(handle) or {}
