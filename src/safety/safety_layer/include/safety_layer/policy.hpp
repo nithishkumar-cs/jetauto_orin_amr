@@ -24,16 +24,21 @@
 namespace safety_layer
 {
 
-/// Severity levels. Values match amr_interfaces/SafetyState constants EXACTLY,
-/// so static_cast<uint8_t>(level) is the on-the-wire state value. Do NOT use
-/// this numeric order for priority — it is the message contract, not a ranking.
-/// Reporting priority is a separate concern, see report_rank().
+/// Severity levels, ordered by escalating severity so that a plain `>`
+/// comparison picks the correct headline. Values match
+/// amr_interfaces/SafetyState constants EXACTLY, so static_cast<uint8_t>(level)
+/// is the on-the-wire state value — one ordering serves both the wire contract
+/// and the priority ranking.
+///
+/// Motion effect is deliberately NOT encoded in this order: SENSOR_DEGRADED,
+/// STOP and ESTOP all zero the speed_scale. The order only decides which reason
+/// is reported when several conditions hold at once.
 enum class SafetyLevel : uint8_t {
   CLEAR = 0,            ///< nothing in range; full speed
   SLOW = 1,             ///< obstacle in the slow zone; throttle to slow_scale
-  STOP = 2,             ///< obstacle in the stop zone; zero velocity
-  ESTOP = 3,            ///< e-stop engaged; zero velocity
-  SENSOR_DEGRADED = 4,  ///< a required safety input is stale/untrusted; fail-closed
+  SENSOR_DEGRADED = 2,  ///< a required safety input is stale/untrusted; fail-closed
+  STOP = 3,             ///< obstacle in the stop zone; zero velocity
+  ESTOP = 4,            ///< e-stop engaged; zero velocity
 };
 
 /// An obstacle sample in the base frame (e.g. base_link), metres.
@@ -68,16 +73,6 @@ struct Decision
   double nearest_obstacle_m{-1.0};  ///< closest sample distance, or -1.0 if none
 };
 
-/// Reporting priority for worst-case combination. Higher wins the headline when
-/// several conditions hold at once. This is distinct from SafetyLevel's numeric
-/// value (the wire contract). Order rationale:
-///   CLEAR < SLOW < SENSOR_DEGRADED < STOP < ESTOP
-/// A concrete obstacle in the stop zone (STOP) is a more actionable headline
-/// than "blind on some input" (SENSOR_DEGRADED); an operator/hardware e-stop
-/// (ESTOP) dominates everything. Motion is unaffected by this order — all three
-/// of DEGRADED/STOP/ESTOP zero the speed_scale regardless.
-int report_rank(SafetyLevel level);
-
 /// Radial zone check over obstacle samples. Returns CLEAR (and nearest=-1) for
 /// an empty-but-FRESH reading — "we looked and saw nothing". Staleness is NOT
 /// this function's job; the node's watchdog decides when a *missing* reading
@@ -93,7 +88,7 @@ Decision degraded_decision(const std::string & reason);
 /// Worst-case combination of independent verdicts ("anything screaming danger
 /// wins"). Two independent reductions:
 ///   - speed_scale := min over all verdicts   (most restrictive throttle wins)
-///   - level/reason := the verdict with the highest report_rank
+///   - level/reason := the verdict with the highest SafetyLevel
 ///   - nearest_obstacle_m := min over verdicts that reported one (>= 0)
 /// An empty list is a misconfiguration and fails closed to SENSOR_DEGRADED.
 Decision combine(const std::vector<Decision> & decisions);

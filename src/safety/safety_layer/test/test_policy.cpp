@@ -122,24 +122,27 @@ TEST(DegradedDecision, AlwaysFailsClosed)
   EXPECT_EQ(d.reason, "lidar stale");
 }
 
-// --- report_rank ------------------------------------------------------------
+// --- severity ordering ------------------------------------------------------
 
-TEST(ReportRank, OrdersByHeadlinePriority)
+TEST(SeverityOrder, EscalatesByHeadlinePriority)
 {
-  EXPECT_LT(report_rank(SafetyLevel::CLEAR), report_rank(SafetyLevel::SLOW));
-  EXPECT_LT(report_rank(SafetyLevel::SLOW), report_rank(SafetyLevel::SENSOR_DEGRADED));
-  EXPECT_LT(report_rank(SafetyLevel::SENSOR_DEGRADED), report_rank(SafetyLevel::STOP));
-  EXPECT_LT(report_rank(SafetyLevel::STOP), report_rank(SafetyLevel::ESTOP));
+  // combine() picks the headline with a plain `>`, so this order IS the policy.
+  EXPECT_LT(SafetyLevel::CLEAR, SafetyLevel::SLOW);
+  EXPECT_LT(SafetyLevel::SLOW, SafetyLevel::SENSOR_DEGRADED);
+  EXPECT_LT(SafetyLevel::SENSOR_DEGRADED, SafetyLevel::STOP);
+  EXPECT_LT(SafetyLevel::STOP, SafetyLevel::ESTOP);
 }
 
 TEST(WireContract, EnumMatchesMessageConstants)
 {
-  // Guards against silently drifting from amr_interfaces/SafetyState.
+  // Guards against silently drifting from amr_interfaces/SafetyState. The same
+  // numbers serve as the wire values and the priority ranking, so a change here
+  // is a change to both — update SafetyState.msg in lockstep.
   EXPECT_EQ(static_cast<uint8_t>(SafetyLevel::CLEAR), 0);
   EXPECT_EQ(static_cast<uint8_t>(SafetyLevel::SLOW), 1);
-  EXPECT_EQ(static_cast<uint8_t>(SafetyLevel::STOP), 2);
-  EXPECT_EQ(static_cast<uint8_t>(SafetyLevel::ESTOP), 3);
-  EXPECT_EQ(static_cast<uint8_t>(SafetyLevel::SENSOR_DEGRADED), 4);
+  EXPECT_EQ(static_cast<uint8_t>(SafetyLevel::SENSOR_DEGRADED), 2);
+  EXPECT_EQ(static_cast<uint8_t>(SafetyLevel::STOP), 3);
+  EXPECT_EQ(static_cast<uint8_t>(SafetyLevel::ESTOP), 4);
 }
 
 // --- combine: worst-case ----------------------------------------------------

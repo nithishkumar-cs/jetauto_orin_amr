@@ -8,23 +8,6 @@
 namespace safety_layer
 {
 
-int report_rank(SafetyLevel level)
-{
-  switch (level) {
-    case SafetyLevel::CLEAR:
-      return 0;
-    case SafetyLevel::SLOW:
-      return 1;
-    case SafetyLevel::SENSOR_DEGRADED:
-      return 2;
-    case SafetyLevel::STOP:
-      return 3;
-    case SafetyLevel::ESTOP:
-      return 4;
-  }
-  return 0;  // unreachable; keeps the compiler quiet
-}
-
 Decision evaluate_obstacles(const std::vector<Point2D> & points, const RadialZones & zones)
 {
   double nearest = std::numeric_limits<double>::infinity();
@@ -89,7 +72,7 @@ Decision combine(const std::vector<Decision> & decisions)
     if (d.nearest_obstacle_m >= 0.0) {
       nearest = (nearest < 0.0) ? d.nearest_obstacle_m : std::min(nearest, d.nearest_obstacle_m);
     }
-    if (report_rank(d.level) > report_rank(out.level)) {
+    if (d.level > out.level) {
       out = d;  // adopt the higher-priority headline
     }
   }
