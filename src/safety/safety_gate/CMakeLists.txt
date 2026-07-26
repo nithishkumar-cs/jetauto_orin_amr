@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(safety_layer)
+project(safety_gate)
 
 if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 17)
@@ -21,7 +21,7 @@ target_compile_features(safety_policy PUBLIC cxx_std_17)
 
 install(
   TARGETS safety_policy
-  EXPORT export_safety_layer
+  EXPORT export_safety_gate
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
@@ -35,5 +35,5 @@ endif()
 
 ament_export_include_directories(include)
 ament_export_libraries(safety_policy)
-ament_export_targets(export_safety_layer HAS_LIBRARY_TARGET)
+ament_export_targets(export_safety_gate HAS_LIBRARY_TARGET)
 ament_package()

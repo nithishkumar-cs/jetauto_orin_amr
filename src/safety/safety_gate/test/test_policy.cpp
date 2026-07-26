@@ -4,9 +4,11 @@
 
 #include <gtest/gtest.h>
 
-#include "safety_layer/policy.hpp"
+#include <cmath>
 
-using namespace safety_layer;
+#include "safety_gate/policy.hpp"
+
+using namespace safety_gate;
 
 namespace
 {
@@ -215,6 +217,200 @@ TEST(Combine, AllClearStaysClear)
   EXPECT_EQ(d.level, SafetyLevel::CLEAR);
   EXPECT_DOUBLE_EQ(d.speed_scale, 1.0);
   EXPECT_DOUBLE_EQ(d.nearest_obstacle_m, 3.0);  // the one source that saw something
+}
+
+// --- step: e-stop latching --------------------------------------------------
+
+namespace
+{
+Params make_params()
+{
+  Params p;
+  p.zones = kZones;
+  p.max_source_age_s = 0.3;
+  p.hysteresis_m = 0.05;
+  p.required_sources = {"lidar"};
+  return p;
+}
+
+/// A fresh lidar reading with the given points.
+Inputs fresh(std::vector<Point2D> points, bool estop = false, bool reset = false)
+{
+  Inputs in;
+  in.sources.push_back({"lidar", std::move(points), 0.0, true});
+  in.estop_engaged = estop;
+  in.reset_requested = reset;
+  return in;
+}
+}  // namespace
+
+TEST(Step, EstopLatchesAndSurvivesSignalRelease)
+{
+  const auto p = make_params();
+
+  // Tick 1: button pressed, field otherwise clear.
+  const auto a = step(fresh({}, /*estop=*/true), {}, p);
+  EXPECT_EQ(a.decision.level, SafetyLevel::ESTOP);
+  EXPECT_TRUE(a.next.estop_latched);
+
+  // Tick 2: signal drops (glitch, dropped packet, publisher restart). The
+  // memoryless estop_decision() would say CLEAR here — the latch must not.
+  const auto b = step(fresh({}, /*estop=*/false), a.next, p);
+  EXPECT_EQ(b.decision.level, SafetyLevel::ESTOP);
+  EXPECT_DOUBLE_EQ(b.decision.speed_scale, 0.0);
+  EXPECT_TRUE(b.next.estop_latched);
+}
+
+TEST(Step, ResetClearsLatchOnlyAfterSignalReleases)
+{
+  const auto p = make_params();
+  const auto tripped = step(fresh({}, true), {}, p);
+
+  // Reset while the button is still held must NOT clear the trip.
+  const auto held = step(fresh({}, /*estop=*/true, /*reset=*/true), tripped.next, p);
+  EXPECT_EQ(held.decision.level, SafetyLevel::ESTOP);
+  EXPECT_TRUE(held.next.estop_latched);
+
+  // Released, then reset: now it clears.
+  const auto cleared = step(fresh({}, /*estop=*/false, /*reset=*/true), held.next, p);
+  EXPECT_EQ(cleared.decision.level, SafetyLevel::CLEAR);
+  EXPECT_FALSE(cleared.next.estop_latched);
+  EXPECT_DOUBLE_EQ(cleared.decision.speed_scale, 1.0);
+}
+
+TEST(Step, ReleaseAloneNeverClearsTheLatch)
+{
+  const auto p = make_params();
+  auto s = step(fresh({}, true), {}, p).next;
+  for (int i = 0; i < 100; ++i) {
+    const auto r = step(fresh({}, /*estop=*/false), s, p);
+    ASSERT_EQ(r.decision.level, SafetyLevel::ESTOP);
+    s = r.next;
+  }
+}
+
+// --- step: staleness --------------------------------------------------------
+
+TEST(Step, StaleRequiredSourceFailsClosed)
+{
+  const auto p = make_params();
+  Inputs in;
+  in.sources.push_back({"lidar", {}, /*age_s=*/0.5, /*required=*/true});  // > 0.3
+
+  const auto r = step(in, {}, p);
+  EXPECT_EQ(r.decision.level, SafetyLevel::SENSOR_DEGRADED);
+  EXPECT_DOUBLE_EQ(r.decision.speed_scale, 0.0);
+  EXPECT_EQ(r.decision.reason, "lidar stale");
+}
+
+TEST(Step, StaleSourcePointsAreNotTrusted)
+{
+  // A stale source reporting a clear field must not be read as "all clear".
+  auto p = make_params();
+  p.required_sources = {};
+  Inputs in;
+  in.sources.push_back({"camera", {}, /*age_s=*/9.0, /*required=*/false});
+
+  const auto r = step(in, {}, p);
+  EXPECT_DOUBLE_EQ(r.decision.speed_scale, 0.0);  // no fresh source => nothing says go
+  EXPECT_EQ(r.decision.level, SafetyLevel::SENSOR_DEGRADED);
+}
+
+TEST(Step, NanAgeCountsAsStale)
+{
+  const auto p = make_params();
+  Inputs in;
+  in.sources.push_back({"lidar", {}, std::nan(""), true});
+  EXPECT_EQ(step(in, {}, p).decision.level, SafetyLevel::SENSOR_DEGRADED);
+}
+
+TEST(Step, MissingRequiredSourceFailsClosed)
+{
+  // The lidar node never started: nothing in Inputs at all. The camera is
+  // fresh and sees a clear field, which must NOT be enough to move.
+  auto p = make_params();
+  p.required_sources = {"lidar"};
+  Inputs in;
+  in.sources.push_back({"camera", {}, 0.0, false});
+
+  const auto r = step(in, {}, p);
+  EXPECT_EQ(r.decision.level, SafetyLevel::SENSOR_DEGRADED);
+  EXPECT_DOUBLE_EQ(r.decision.speed_scale, 0.0);
+  EXPECT_EQ(r.decision.reason, "lidar missing");
+}
+
+TEST(Step, FreshRequiredSourceClearsNormally)
+{
+  const auto p = make_params();
+  const auto r = step(fresh({{3.0, 0.0}}), {}, p);
+  EXPECT_EQ(r.decision.level, SafetyLevel::CLEAR);
+  EXPECT_DOUBLE_EQ(r.decision.speed_scale, 1.0);
+}
+
+// --- step: hysteresis -------------------------------------------------------
+
+TEST(Step, StopStateStickyWithinHysteresisBand)
+{
+  const auto p = make_params();  // stop 0.55, hysteresis 0.05
+
+  const auto in_stop = step(fresh({{0.50, 0.0}}), {}, p);
+  ASSERT_EQ(in_stop.decision.level, SafetyLevel::STOP);
+
+  // 0.57 is outside the plain stop radius but inside stop + hysteresis.
+  // Memoryless evaluation would drop to SLOW here and start the chatter.
+  const auto still = step(fresh({{0.57, 0.0}}), in_stop.next, p);
+  EXPECT_EQ(still.decision.level, SafetyLevel::STOP);
+
+  // Beyond the widened radius it finally de-escalates.
+  const auto released = step(fresh({{0.65, 0.0}}), still.next, p);
+  EXPECT_EQ(released.decision.level, SafetyLevel::SLOW);
+}
+
+TEST(Step, EscalationIsNeverDelayed)
+{
+  const auto p = make_params();
+  const auto clear = step(fresh({{3.0, 0.0}}), {}, p);
+  ASSERT_EQ(clear.decision.level, SafetyLevel::CLEAR);
+
+  // Entering the stop zone takes effect on the very first tick.
+  const auto entered = step(fresh({{0.30, 0.0}}), clear.next, p);
+  EXPECT_EQ(entered.decision.level, SafetyLevel::STOP);
+}
+
+TEST(Step, StaleTickDoesNotEraseZoneMemory)
+{
+  const auto p = make_params();
+  const auto stopped = step(fresh({{0.50, 0.0}}), {}, p);
+  ASSERT_EQ(stopped.next.last_zone_level, SafetyLevel::STOP);
+
+  // A tick where the only source is stale must not decay the memory to CLEAR,
+  // or the obstacle would appear to jump out of the stop zone on recovery.
+  Inputs stale_in;
+  stale_in.sources.push_back({"lidar", {}, 5.0, true});
+  const auto gap = step(stale_in, stopped.next, p);
+  EXPECT_EQ(gap.next.last_zone_level, SafetyLevel::STOP);
+
+  const auto back = step(fresh({{0.57, 0.0}}), gap.next, p);
+  EXPECT_EQ(back.decision.level, SafetyLevel::STOP);  // still sticky
+}
+
+// --- step: combination ------------------------------------------------------
+
+TEST(Step, EstopOutranksObstacleHeadline)
+{
+  const auto p = make_params();
+  const auto r = step(fresh({{0.30, 0.0}}, /*estop=*/true), {}, p);
+  EXPECT_EQ(r.decision.level, SafetyLevel::ESTOP);
+  EXPECT_DOUBLE_EQ(r.decision.speed_scale, 0.0);
+}
+
+TEST(Step, NoSourcesAtAllFailsClosed)
+{
+  auto p = make_params();
+  p.required_sources = {};
+  const auto r = step(Inputs{}, {}, p);
+  EXPECT_DOUBLE_EQ(r.decision.speed_scale, 0.0);
+  EXPECT_EQ(r.decision.level, SafetyLevel::SENSOR_DEGRADED);
 }
 
 int main(int argc, char ** argv)

@@ -1,29 +1,25 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from launch.substitutions import LaunchConfiguration
 
 from launch_lib.arguments import ARGUMENT_NAMES
-from launch_lib.paths import detector_config_for_backend, read_yaml
+from launch_lib.paths import read_yaml
+from launch_lib.tiers import LOCKED_MODES, REQUIRED, TIERS, TOGGLE_NAMES, tier_of
+
+VALID_MODES = ("debug", "profile", "production")
 
 
 @dataclass
 class ResolvedConfig:
     args: dict
-    config_set_name: str
     instrumentation_mode: str
-    detector_backend: str
-    detector_params: Path
     log_level: str
-    enable_sensor_drivers: bool
-    enable_preproc: bool
-    enable_depth_pipeline: bool
-    enable_teleop: bool
-    enable_localization: bool
-    enable_navigation_tasks: bool
-    enable_benchmarks: bool
-    localization_mode: str
-    health_topics: list[str]
+    runtime_behaviour: dict
+    #: toggle name -> enabled. Every name in TOGGLE_NAMES is present.
+    enabled: dict
+    #: toggle names that are off and therefore need a synthetic stand-in.
+    synthetic: list = field(default_factory=list)
 
 
 def parse_bool(raw_value: str, name: str) -> bool:
@@ -32,19 +28,9 @@ def parse_bool(raw_value: str, name: str) -> bool:
         return True
     if value == "false":
         return False
-    raise RuntimeError(f"Launch argument '{name}' must be 'true' or 'false', got '{raw_value}'.")
-
-
-def resolve_toggle(raw_value: str, default_value: bool, name: str) -> bool:
-    if raw_value == "auto":
-        return default_value
-    return parse_bool(raw_value, name)
-
-
-def resolve_string(raw_value: str, default_value: str) -> str:
-    if raw_value == "auto":
-        return default_value
-    return raw_value
+    raise RuntimeError(
+        f"Launch argument '{name}' must be 'true', 'false' or 'auto', got '{raw_value}'."
+    )
 
 
 def launch_args_from_context(context) -> dict:
@@ -52,29 +38,82 @@ def launch_args_from_context(context) -> dict:
 
 
 def validate_required_files(args: dict) -> None:
-    required_files = [
-        Path(args["system_modes_config"]),
-        Path(args["runtime_modes_config"]),
-        Path(args["robot_profile_config"]),
-        Path(args["topic_contracts_config"]),
-        Path(args["calibration_manifest"]),
-        Path(args["camera_params"]),
-        Path(args["preproc_params"]),
-        Path(args["geometry_params"]),
-        Path(args["tracking_params"]),
-        Path(args["fusion_params"]),
-        Path(args["safety_params"]),
-        Path(args["calibration_params"]),
-        Path(args["health_params"]),
-        Path(args["latency_params"]),
-        Path(args["teleop_params"]),
-        Path(args["navigation_task_params"]),
-        Path(args["slam_params"]),
-        Path(args["nav2_params"]),
-    ]
-    for path in required_files:
+    for key in ("system_modes_config", "runtime_modes_config"):
+        path = Path(args[key])
         if not path.exists():
-            raise RuntimeError(f"Required bringup resource is missing: {path}")
+            raise RuntimeError(f"Required bringup resource is missing: {path} (from '{key}')")
+
+
+def resolve_mode(args: dict, system_modes: dict, runtime_modes: dict) -> str:
+    mode = args["instrumentation_mode"]
+    if mode == "auto":
+        mode = system_modes.get("default_mode", "debug")
+    if mode not in VALID_MODES:
+        raise RuntimeError(f"Unknown instrumentation_mode '{mode}'. Expected one of {VALID_MODES}.")
+    if mode not in runtime_modes["instrumentation_modes"]:
+        raise RuntimeError(f"runtime_modes.yaml is missing instrumentation mode '{mode}'.")
+    return mode
+
+
+def check_toggle_coverage(yaml_toggles: dict) -> None:
+    """Every YAML toggle must be classified, and every classified name present.
+
+    Without this, adding a toggle to system_modes.yaml and forgetting to give it
+    a tier would silently make it behave like an optional node — including in
+    production, where required nodes are supposed to be locked on.
+    """
+    unclassified = sorted(set(yaml_toggles) - set(TIERS))
+    if unclassified:
+        raise RuntimeError(
+            f"system_modes.yaml toggles have no tier in tiers.py: {unclassified}. "
+            "Classify them as required/optional/variant."
+        )
+    missing = sorted(set(TIERS) - set(yaml_toggles))
+    if missing:
+        raise RuntimeError(f"system_modes.yaml is missing toggles declared in tiers.py: {missing}.")
+
+
+def resolve_toggles(args: dict, mode: str, yaml_toggles: dict) -> dict:
+    """Apply tier rules to produce the final on/off map.
+
+    In a locked mode (production) the YAML toggles are ignored — everything
+    defaults on — but the launch arguments are not blanket-ignored: disabling a
+    required node is an error, while optional instrumentation stays a free
+    toggle so it can be switched off on a real robot without a rebuild.
+    """
+    locked = mode in LOCKED_MODES
+    enabled = {}
+
+    for name in TOGGLE_NAMES:
+        arg_name = f"enable_{name}"
+        raw = args[arg_name]
+        explicit = None if raw == "auto" else parse_bool(raw, arg_name)
+
+        if locked:
+            if explicit is False and tier_of(name) == REQUIRED:
+                raise RuntimeError(
+                    f"'{arg_name}=false' is not allowed in {mode} mode: "
+                    f"'{name}' is a required component and is locked on."
+                )
+            # Optional and variant components remain selectable; required ones
+            # are on regardless of what the YAML says.
+            enabled[name] = True if explicit is None else explicit
+            continue
+
+        enabled[name] = explicit if explicit is not None else bool(yaml_toggles.get(name, True))
+
+    return enabled
+
+
+def check_constraints(enabled: dict, mode: str) -> None:
+    """Cross-component rules that no single toggle can express."""
+    # CLAUDE.md: safety may be false only when drivers is false. Gating a real
+    # base with no safety layer is the one combination that must never launch.
+    if not enabled["safety"] and enabled["drivers"]:
+        raise RuntimeError(
+            "Invalid combination: safety=false with drivers=true. The safety gate may "
+            "only be disabled when no real base is being driven (drivers=false)."
+        )
 
 
 def resolve_config(context) -> ResolvedConfig:
@@ -83,126 +122,25 @@ def resolve_config(context) -> ResolvedConfig:
 
     system_modes = read_yaml(Path(args["system_modes_config"]))
     runtime_modes = read_yaml(Path(args["runtime_modes_config"]))
-    robot_profile = read_yaml(Path(args["robot_profile_config"]))
-    topic_contracts = read_yaml(Path(args["topic_contracts_config"]))
-    calibration_manifest = read_yaml(Path(args["calibration_manifest"]))
 
-    for key in ("defaults", "config_sets"):
-        if key not in system_modes:
-            raise RuntimeError(f"system_modes.yaml is missing required key '{key}'.")
     if "instrumentation_modes" not in runtime_modes:
         raise RuntimeError("runtime_modes.yaml is missing 'instrumentation_modes'.")
-    if "robot" not in robot_profile:
-        raise RuntimeError("robot_profile.yaml is missing 'robot'.")
-    if "topics" not in topic_contracts:
-        raise RuntimeError("topic_contracts.yaml is missing 'topics'.")
-    if "required_files" not in calibration_manifest:
-        raise RuntimeError("calibration_manifest.yaml is missing 'required_files'.")
+    if "toggles" not in system_modes:
+        raise RuntimeError("system_modes.yaml is missing 'toggles'.")
 
-    instrumentation_mode = args["instrumentation_mode"]
-    if instrumentation_mode == "auto":
-        instrumentation_mode = system_modes["defaults"].get("instrumentation_mode", "debug")
+    check_toggle_coverage(system_modes["toggles"])
 
-    config_set_by_mode = system_modes["defaults"].get("config_set_by_mode", {})
-    if instrumentation_mode not in config_set_by_mode:
-        raise RuntimeError(f"Unknown instrumentation_mode '{instrumentation_mode}'.")
-    if instrumentation_mode not in runtime_modes["instrumentation_modes"]:
-        raise RuntimeError(
-            f"runtime_modes.yaml is missing instrumentation mode '{instrumentation_mode}'."
-        )
+    mode = resolve_mode(args, system_modes, runtime_modes)
+    runtime_behaviour = runtime_modes["instrumentation_modes"][mode] or {}
 
-    config_set_name = config_set_by_mode[instrumentation_mode]
-    if config_set_name not in system_modes["config_sets"]:
-        raise RuntimeError(f"system_modes.yaml is missing config set '{config_set_name}'.")
-
-    mode_defaults = system_modes["config_sets"][config_set_name]
-    runtime_mode = runtime_modes["instrumentation_modes"][instrumentation_mode]
-
-    detector_backend = args["detector_backend"]
-    if detector_backend == "auto":
-        detector_backend = mode_defaults.get(
-            "detector_backend",
-            system_modes["defaults"]
-            .get("detector_backend_defaults", {})
-            .get(instrumentation_mode, "debug"),
-        )
-
-    detector_params = (
-        Path(args["detector_params"])
-        if args["detector_params"]
-        else detector_config_for_backend(detector_backend)
-    )
-    if not detector_params.exists():
-        raise RuntimeError(f"Detector params file is missing: {detector_params}")
-
-    enable_sensor_drivers = resolve_toggle(
-        args["enable_sensor_drivers"],
-        mode_defaults.get("enable_sensor_drivers", False),
-        "enable_sensor_drivers",
-    )
-    enable_preproc = resolve_toggle(
-        args["enable_preproc"], mode_defaults.get("enable_preproc", True), "enable_preproc"
-    )
-    enable_depth_pipeline = resolve_toggle(
-        args["enable_depth_pipeline"],
-        mode_defaults.get("enable_depth_pipeline", False),
-        "enable_depth_pipeline",
-    )
-    enable_teleop = resolve_toggle(
-        args["enable_teleop"], mode_defaults.get("enable_teleop", False), "enable_teleop"
-    )
-    enable_localization = resolve_toggle(
-        args["enable_localization"],
-        mode_defaults.get("enable_localization", False),
-        "enable_localization",
-    )
-    enable_navigation_tasks = resolve_toggle(
-        args["enable_navigation_tasks"],
-        mode_defaults.get("enable_navigation_tasks", False),
-        "enable_navigation_tasks",
-    )
-    enable_benchmarks = resolve_toggle(
-        args["enable_benchmarks"],
-        mode_defaults.get("enable_benchmarks", False),
-        "enable_benchmarks",
-    )
-
-    localization_mode = resolve_string(
-        args["localization_mode"], mode_defaults.get("localization_mode", "mapping")
-    )
-    if localization_mode not in ("mapping", "navigation"):
-        raise RuntimeError(f"Unsupported localization_mode '{localization_mode}'.")
-    if enable_localization and localization_mode == "navigation" and not args["map_file"]:
-        raise RuntimeError("Localization navigation mode requires map_file.")
-
-    health_topics = ["/diagnostics/calibration/health", "/diagnostics/detector/health"]
-    if enable_sensor_drivers:
-        health_topics.append("/diagnostics/rgb_camera/health")
-    if enable_preproc:
-        health_topics.append("/diagnostics/preproc/health")
-    if enable_depth_pipeline:
-        health_topics.extend(
-            [
-                "/diagnostics/geometry/health",
-                "/diagnostics/tracking/health",
-                "/diagnostics/fusion/health",
-            ]
-        )
+    enabled = resolve_toggles(args, mode, system_modes["toggles"])
+    check_constraints(enabled, mode)
 
     return ResolvedConfig(
         args=args,
-        config_set_name=config_set_name,
-        instrumentation_mode=instrumentation_mode,
-        detector_backend=detector_backend,
-        detector_params=detector_params,
-        log_level=runtime_mode.get("log_level", "info"),
-        enable_sensor_drivers=enable_sensor_drivers,
-        enable_preproc=enable_preproc,
-        enable_depth_pipeline=enable_depth_pipeline,
-        enable_teleop=enable_teleop,
-        enable_localization=enable_localization,
-        enable_navigation_tasks=enable_navigation_tasks,
-        enable_benchmarks=enable_benchmarks,
-        localization_mode=localization_mode,
-        health_topics=health_topics,
+        instrumentation_mode=mode,
+        log_level=runtime_behaviour.get("log_level", "info"),
+        runtime_behaviour=runtime_behaviour,
+        enabled=enabled,
+        synthetic=sorted(name for name, on in enabled.items() if not on),
     )

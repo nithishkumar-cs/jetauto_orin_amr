@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>safety_layer</name>
+  <name>safety_gate</name>
   <version>0.1.0</version>
   <description>
     Deterministic safety command-gate for the JetAuto AMR. Split into a pure,

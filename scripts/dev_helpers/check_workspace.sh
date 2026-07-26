@@ -15,7 +15,7 @@ fi
 # Keep GPU-only packages (e.g. perception_inference) out of this list.
 host_packages=(
   amr_interfaces
-  safety_layer
+  safety_gate
 )
 
 build_args=(--merge-install --symlink-install)

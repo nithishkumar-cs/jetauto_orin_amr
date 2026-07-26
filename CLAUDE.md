@@ -47,15 +47,26 @@ decisions below.
 - **Config homes.** Per-package `config/` = node default params; top-level `configs/` = deployment/robot config + mode config. Everything is read from the *installed* share path, so `--symlink-install` (or overriding the path launch-arg) is what makes edits live without a rebuild — location does not change that.
 - **`src/<layer>/<pkg>/src` nesting is correct.** Outer `src` = colcon source space; inner `src` = ament C++ sources. colcon discovers packages by `package.xml` recursively, by name not path.
 
-## Deferred: robot_bringup (intentionally broken; revisit when rebuilding)
+## robot_bringup (REBUILT — launches clean, launches nothing)
 
-`robot_bringup` will not launch until the packages are rebuilt. To restore it:
+Rewritten 2026-07-26. It builds, launches in all three modes, and enforces the
+tier rules. It starts **no nodes**, because no package ships one yet.
 
-1. **Dangling package references.** `arguments.py` / `actions.py` resolve every nuked package via `get_package_share_directory(...)`; these throw on launch until each package exists again. Re-add references as packages return.
-2. **Moved config.** Update `CMakeLists.txt` `install(FILES system_modes.yaml ...)` and the `arguments.py` default (`bringup_share / "system_modes.yaml"`) to point at `configs/runtime_modes/system_modes.yaml`.
-3. **Synthetic substitution.** Implement in `actions.py`: a `false` toggle spawns a synthetic publisher on that node's output contract; `drivers=false` wires a rosbag / sim bridge instead of the camera node.
-4. **Production lock + tiers.** Implement in `config.py`: reject disabling `required` nodes in `production`; allow `optional`; constrain `variant` selectors to validated sets.
-5. **Safety↔drivers constraint.** Enforce in `config.py`: `safety=false` is only valid when `drivers=false`.
+- **Done.** Dangling package references removed (`package.xml` exec_depends
+  trimmed to what exists; `NODE_SPECS` in `actions.py` is the registry to grow).
+  `system_modes.yaml` install fixed — it is no longer installed from the package,
+  it arrives via the `configs/` → `project_configs/` install. `config.py` rewritten
+  for the current `system_modes.yaml` schema (`default_mode` + flat `toggles`);
+  the old code expected `defaults`/`config_sets` and could not have worked.
+  Production lock + tiers and the safety↔drivers constraint are implemented in
+  `config.py`, tiers declared in `launch_lib/tiers.py`.
+- **Adding a package back:** add a `NODE_SPECS` entry in `actions.py` and an
+  `exec_depend` in `package.xml`. Unregistered or unbuilt packages are reported
+  and skipped, never fatal.
+- **Still open.** *Synthetic substitution* — a `false` toggle currently logs its
+  intent instead of spawning a stand-in publisher; it needs the output contracts,
+  so it waits on the packages. *Variant validated-sets* — `variant` components are
+  currently free toggles; the "validated combinations only" rule is not enforced.
 
 ## Pending design decisions (not yet made)
 
@@ -71,7 +82,32 @@ Fill nodes and topics one by one. Per package: extract a pure core library + gte
 source-agnostic. Build/test per package with `colcon build|test --packages-up-to <pkg>`.
 Use ROS Humble: `source /opt/ros/humble/setup.bash`.
 
-**Progress:** `amr_interfaces` DONE. Next package is open — strong candidates:
-`safety_layer` (settled location, fully unit-testable policy core, depends only on
-amr_interfaces, no upstream needed — feed synthetic obstacles) or start the data path
-at `sensor_drivers` (note: re-opens the platform-vs-drivers placement decision).
+**Progress:**
+
+- `amr_interfaces` DONE. `SafetyState` constants are ordered by escalating
+  severity (`CLEAR < SLOW < SENSOR_DEGRADED < STOP < ESTOP`) so a plain numeric
+  compare picks the correct headline — one ordering serves the wire contract and
+  the priority ranking.
+- `safety_gate` (renamed from `safety_layer` on 2026-07-26) — **policy core
+  DONE**, 36 tests.
+  Memoryless primitives (`evaluate_obstacles` / `estop_decision` /
+  `degraded_decision` / `combine`) plus stateful `step()`, which adds latched
+  e-stop (explicit operator reset required), zone hysteresis, and source
+  staleness. State is *passed*, never *held*: `step(inputs, prev_state, params)`
+  returns the next state, so there is no clock and no member variable, and it
+  stays deterministic. The node does not exist yet — that is the next increment.
+- `robot_bringup` rebuilt; see above.
+
+**Next:** the `safety_gate` ROS node — subscribe obstacle sources + e-stop +
+`/cmd_vel`, measure message ages, call `step()`, publish
+`/cmd_vel/safety_limited` and `SafetyState`. It needs an upstream obstacle
+source to be useful, so either feed it synthetic obstacles or start the data
+path at `sensor_drivers` (note: re-opens the platform-vs-drivers decision).
+
+**Known fail-open holes in `safety_gate` (not yet fixed):** `RadialZones` params
+are never validated — NaN radii make every comparison false and report CLEAR at
+full speed while simultaneously reporting a 10 cm obstacle. NaN points in a cloud
+are silently dropped, so an all-invalid depth frame reads as "saw nothing"
+rather than "saw nothing usable". Obstacles are points, not volumes, so whoever
+writes the node must decide centroid vs nearest-extent — centroid under-reports
+for large objects.

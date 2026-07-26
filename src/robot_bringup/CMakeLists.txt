@@ -3,9 +3,10 @@ project(robot_bringup)
 
 find_package(ament_cmake REQUIRED)
 
+# system_modes.yaml is NOT installed from here: it lives in
+# configs/runtime_modes/ and arrives via the project_configs install below.
 install(FILES
   robot_stack.launch.py
-  system_modes.yaml
   DESTINATION share/${PROJECT_NAME}
 )
 
