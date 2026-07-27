@@ -111,7 +111,7 @@ def check_constraints(enabled: dict, mode: str) -> None:
     # base with no safety layer is the one combination that must never launch.
     if not enabled["safety"] and enabled["drivers"]:
         raise RuntimeError(
-            "Invalid combination: safety=false with drivers=true. The safety gate may "
+            "Invalid combination: safety=false with drivers=true. The collision-avoidance "
             "only be disabled when no real base is being driven (drivers=false)."
         )
 

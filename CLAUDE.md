@@ -13,8 +13,8 @@ decisions below.
   `.gitkeep` per folder if you want the skeleton versioned.)
 - **`robot_bringup` is kept but is BROKEN-ON-LAUNCH by design** — see *Deferred* below.
 - **`amr_interfaces` rebuilt (DONE, standards-first).** Lives at
-  `src/platform/amr_interfaces`. Defines only the 3 custom contracts ROS has no
-  standard for — `TrackedObstacle`, `TrackedObstacleArray`, `SafetyState`.
+  `src/platform/amr_interfaces`. Defines only the 2 custom contracts ROS has no
+  standard for — `TrackedObstacle`, `TrackedObstacleArray`.
   Everything else uses standards: detection → `vision_msgs/Detection2DArray` +
   `Detection3DArray`; health → `diagnostic_msgs`; e-stop → `std_msgs/Bool`;
   odometry → `nav_msgs`. Builds + message generation verified (needs
@@ -27,7 +27,7 @@ decisions below.
 
 - `platform` — shared message contracts (`amr_interfaces`) + TF/calibration foundation. Source-agnostic; no algorithms. *(Dissolution pending — see Pending decisions.)*
 - `perception` — camera → detection → depth-projection → tracking → fusion → `/perception/fused_obstacles`.
-- `safety` — command gate. **Obstacle zones are `nav2_collision_monitor` (upstream), not our code**; `safety_gate` holds only the latching e-stop, which collision_monitor has no input for. Chain: `/cmd_vel` → e-stop latch → `/cmd_vel_raw` → collision_monitor → `/cmd_vel/safety_limited`.
+- `safety` — collision avoidance plus an operator stop. **Obstacle zones are `nav2_collision_monitor` (upstream), not our code**; `estop_gate` is the final latching software operator-stop, so Nav2 cannot override it. Chain: `/cmd_vel` → collision_monitor → `/cmd_vel/collision_limited` → e-stop latch → `/cmd_vel/safety_limited`.
 - `localization` — SLAM / localization & mapping.
 - `navigation` — nav tasks + teleop relay.
 - `drivers` — real hardware IO. Consumes `/cmd_vel/safety_limited`, publishes `/odom/wheel`.
@@ -48,7 +48,7 @@ decisions below.
 - **Modes** (kept: `debug` + `profile` + `production`). `debug`/`profile` have per-node toggles where `false` ⇒ synthetic substitution; `production` is locked (no toggles). Mode *behavior* (log/assert/timing/metrics) lives in `runtime_modes.yaml`. **Constraint: `safety` may be `false` only when `drivers` is `false`.**
 - **Config homes.** Per-package `config/` = node default params; top-level `configs/` = deployment/robot config + mode config. Everything is read from the *installed* share path, so `--symlink-install` (or overriding the path launch-arg) is what makes edits live without a rebuild — location does not change that.
 - **`src/<layer>/<pkg>/src` nesting is correct.** Outer `src` = colcon source space; inner `src` = ament C++ sources. colcon discovers packages by `package.xml` recursively, by name not path. **Every** package sits at `src/<layer>/<pkg>/` — `robot_bringup` was the last exception and moved to `src/orchestration/robot_bringup/` on 2026-07-26.
-- **Package names must stand alone.** ROS package names are a flat global namespace, so the layer folder provides no scoping: `src/perception/geometry/` holds a package *named* `perception_geometry`. Do not name a package after its folder alone (`safety`, `geometry`) — and avoid stutter (`safety/safety_layer`), which is why the gate is `safety_gate` and the orchestrator layer is `orchestration`, not `bringup`.
+- **Package names must stand alone.** ROS package names are a flat global namespace, so the layer folder provides no scoping: `src/perception/geometry/` holds a package *named* `perception_geometry`. Do not name a package after its folder alone (`safety`, `geometry`) — and avoid stutter (`safety/safety_layer`), which is why the operator-stop component is `estop_gate` and the orchestrator layer is `orchestration`, not `bringup`.
 - **Launch files live in `<pkg>/launch/`.** `launch_lib/` installs as a *sibling*, so `robot_stack.launch.py` puts its parent directory on `sys.path`, not its own.
 
 ## robot_bringup (REBUILT — launches clean, launches nothing)
@@ -88,36 +88,27 @@ Use ROS Humble: `source /opt/ros/humble/setup.bash`.
 
 **Progress:**
 
-- `amr_interfaces` DONE. `SafetyState` constants are ordered by escalating
-  severity (`CLEAR < SLOW < SENSOR_DEGRADED < STOP < ESTOP`) so a plain numeric
-  compare picks the correct headline — one ordering serves the wire contract and
-  the priority ranking.
-- `safety_gate` (renamed from `safety_layer` on 2026-07-26) — **e-stop latch
-  only**, 8 tests. The radial-zone policy that used to live here was deleted in
-  favour of `nav2_collision_monitor`; the latch survives because
-  collision_monitor has no e-stop input. `update_estop(prev, engaged, reset)`:
-  engaging always latches, a reset clears it only once the signal has released,
-  so a dropped packet cannot restart the robot. ROS-free purely so the tests
-  need no fixtures — that is a testing convenience, **not** a safety property.
-  **No node yet.**
+- `amr_interfaces` DONE. It contains only tracked-obstacle contracts; collision
+  state comes from `nav2_msgs/CollisionMonitorState`. The unproduced custom
+  `SafetyState` contract was removed on 2026-07-27.
+- `estop_gate` (renamed from `safety_gate` on 2026-07-27) — **software operator-stop latch
+  only**. The radial-zone policy that used to live here was deleted in favour of
+  `nav2_collision_monitor`; the latch survives because collision_monitor has no e-stop input.
+  A controller e-stop message latches it and a controller reset clears it.
+  `estop_gate_node` subscribes to `/cmd_vel`, `/estop/engaged`, and `/estop/reset`.
+  While latched it publishes zero velocity for each received command; otherwise it publishes commands
+  to `/cmd_vel/safety_limited` after collision_monitor publishes its result to
+  `/cmd_vel/collision_limited`; it is the final software command authority.
 - `collision_monitor` — **WIRED AND VERIFIED ACTIVE.** Config at
   `configs/safety/collision_monitor.yaml`, launched by bringup together with its
-  lifecycle manager. Publishes `/cmd_vel/safety_limited`, `/safety/zone_stop`,
-  `/safety/zone_slow`; consumes `/cmd_vel_raw`. It has **no observation source
+  lifecycle manager. Publishes `/cmd_vel/collision_limited`, `/safety/zone_stop`,
+  `/safety/zone_slow`; consumes `/cmd_vel`. It has **no observation source
   publishing yet** — `/scan` is declared but no driver exists — so it currently
   gates nothing.
 - `robot_bringup` rebuilt; see above.
 
-**Next:** the `safety_gate` e-stop node — subscribe `/cmd_vel` + e-stop + reset,
-call `update_estop`, republish to `/cmd_vel_raw`. Then `sensor_drivers` for the
-lidar, which is what makes collision_monitor do anything at all (note: re-opens
-the platform-vs-drivers decision).
-
-**Open contract question:** `amr_interfaces/SafetyState` is now orphaned —
-collision_monitor publishes `nav2_msgs/CollisionMonitorState` (action_type +
-polygon_name only) and nothing publishes ours. Either delete `SafetyState`, or
-have the e-stop node publish it as the aggregated view. Its `SLOW`/`STOP`/
-`SENSOR_DEGRADED` constants have no producer either way.
+**Next:** `sensor_drivers` under `src/drivers/` for the lidar, which is what makes
+collision_monitor do anything at all.
 
 **Unvalidated:** the zone sizes in `collision_monitor.yaml` (stop 0.55 m, slow
 1.25 m, 35% throttle) were carried over from the old radial design and have

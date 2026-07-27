@@ -23,12 +23,18 @@ NODE_SPECS: dict = {
     # available as soon as ros-humble-nav2-collision-monitor is installed —
     # unlike our own packages it does not wait on the rebuild.
     #
-    #   /cmd_vel -> safety_gate (e-stop) -> /cmd_vel_raw
-    #            -> collision_monitor    -> /cmd_vel/safety_limited -> driver
+    #   /cmd_vel -> collision_monitor -> /cmd_vel/collision_limited
+    #            -> estop_gate (operator stop) -> /cmd_vel/safety_limited -> driver
     #
     # It has no source configured yet (no sensor driver exists), so it will run
     # and gate nothing until drivers/ returns and /scan appears.
     "safety": [
+        {
+            "package": "estop_gate",
+            "executable": "estop_gate_node",
+            "name": "estop_gate",
+            "parameters": [str(project_config("safety", "estop_gate.yaml"))],
+        },
         {
             "package": "nav2_collision_monitor",
             "executable": "collision_monitor",
@@ -45,9 +51,6 @@ NODE_SPECS: dict = {
             "parameters": [str(project_config("safety", "collision_monitor.yaml"))],
         },
     ],
-    # safety_gate ships the e-stop latch library only — no node yet, so there is
-    # deliberately no entry for it. When the node lands it joins this chain
-    # UPSTREAM of collision_monitor, publishing /cmd_vel_raw.
 }
 
 

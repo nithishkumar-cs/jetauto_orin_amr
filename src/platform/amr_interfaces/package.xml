@@ -4,8 +4,9 @@
   <version>0.1.0</version>
   <description>
     Custom message contracts for the JetAuto AMR stack — only the types ROS has
-    no standard for (tracked obstacles with velocity, and the safety verdict).
-    Detection uses vision_msgs; health uses diagnostic_msgs.
+    no standard for (tracked obstacles with velocity). Detection uses
+    vision_msgs; health uses diagnostic_msgs; collision state uses Nav2's
+    CollisionMonitorState.
   </description>
   <maintainer email="nithishk.ips@gmail.com">Nithish</maintainer>
   <license>MIT</license>
@@ -14,7 +15,6 @@
   <buildtool_depend>rosidl_default_generators</buildtool_depend>
 
   <depend>std_msgs</depend>
-  <depend>builtin_interfaces</depend>
   <depend>geometry_msgs</depend>
   <depend>vision_msgs</depend>
 

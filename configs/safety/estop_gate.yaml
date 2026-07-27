@@ -1,0 +1,15 @@
+# Software operator-stop gate. This is not a hardware or safety-rated e-stop:
+# it depends on the Jetson, ROS 2, DDS, and the motor driver being healthy.
+#
+# nav2_collision_monitor applies obstacle-zone limiting first; this is the
+# final software authority before the driver:
+#   /cmd_vel -> /cmd_vel/collision_limited -> /cmd_vel/safety_limited -> driver
+#
+# When /estop/engaged is true, the latch blocks every command and publishes
+# zero velocity. A true message on /estop/reset clears the latch.
+estop_gate:
+  ros__parameters:
+    cmd_vel_in_topic: "/cmd_vel/collision_limited"
+    cmd_vel_out_topic: "/cmd_vel/safety_limited"
+    estop_in_topic: "/estop/engaged"
+    reset_in_topic: "/estop/reset"

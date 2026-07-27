@@ -1,13 +1,13 @@
 # nav2_collision_monitor — the obstacle-zone half of the software safety chain.
 #
-# This replaces the radial-zone policy that safety_gate used to implement.
+# This replaces the radial-zone policy that the old safety_gate package used to implement.
 # collision_monitor is maintained upstream and does more: arbitrary polygons
 # rather than circles, scan/pointcloud/range sources, and a built-in
 # source_timeout so a silent sensor is handled without extra code.
 #
 # Chain:
-#   /cmd_vel --> safety_gate (e-stop latch) --> /cmd_vel_raw
-#            --> collision_monitor          --> /cmd_vel/safety_limited
+#   /cmd_vel --> collision_monitor --> /cmd_vel/collision_limited
+#            --> estop_gate (operator-stop latch) --> /cmd_vel/safety_limited
 #            --> driver
 #
 # NOT a safety-rated function. See ISO 3691-4: a certified stop is a scanner
@@ -41,12 +41,12 @@ collision_monitor:
     base_frame_id: "base_link"
     odom_frame_id: "odom"
 
-    cmd_vel_in_topic: "cmd_vel_raw"
-    cmd_vel_out_topic: "cmd_vel/safety_limited"
+    cmd_vel_in_topic: "/cmd_vel"
+    cmd_vel_out_topic: "/cmd_vel/collision_limited"
 
     transform_tolerance: 0.2
     # A source silent for longer than this stops being trusted. This is the
-    # feature that replaces the staleness handling safety_gate used to do.
+    # feature that replaces the staleness handling the old custom policy did.
     source_timeout: 0.3
     base_shift_correction: True
     # Keep publishing the stop command for this long after a trigger clears,
