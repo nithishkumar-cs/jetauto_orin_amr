@@ -10,6 +10,7 @@ TOGGLE_ARGUMENT_NAMES = tuple(f"enable_{name}" for name in TOGGLE_NAMES)
 
 ARGUMENT_NAMES = (
     "instrumentation_mode",
+    "backend",
     "system_modes_config",
     "runtime_modes_config",
 ) + TOGGLE_ARGUMENT_NAMES
@@ -27,6 +28,11 @@ def declared_arguments() -> list:
             "instrumentation_mode",
             default_value="auto",
             description="debug | profile | production. 'auto' uses system_modes.yaml default_mode.",
+        ),
+        DeclareLaunchArgument(
+            "backend",
+            default_value="hardware",
+            description="hardware | isaac | rosbag. Selects the one source at the edge of the stack.",
         ),
         DeclareLaunchArgument(
             "system_modes_config",

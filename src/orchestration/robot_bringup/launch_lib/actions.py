@@ -19,6 +19,14 @@ from launch_lib.tiers import TIERS
 #:         "executable": "detector_node",
 #:     },
 NODE_SPECS: dict = {
+    "geometry": [
+        {
+            "package": "perception_detection_depth_projection",
+            "executable": "detection_depth_projection_node",
+            "name": "detection_depth_projection",
+            "parameters": [str(project_config("perception", "detection_depth_projection.yaml"))],
+        },
+    ],
     # Obstacle-zone half of the safety chain. Upstream package, so it is
     # available as soon as ros-humble-nav2-collision-monitor is installed —
     # unlike our own packages it does not wait on the rebuild.
@@ -53,6 +61,17 @@ NODE_SPECS: dict = {
     ],
 }
 
+# Hardware is the only backend that launches an AMR-side motion-edge node.
+# Isaac's own ROS 2 graph is configured to use our canonical topics directly;
+# rosbag replay will be added once its manifest and /clock policy exist.
+MOTION_BACKEND_SPECS: dict = {
+    "hardware": {
+        "package": "base_driver",
+        "executable": "base_driver_node",
+        "name": "base_driver",
+    },
+}
+
 
 def _node_action(spec: dict, log_level: str) -> Node:
     return Node(
@@ -74,6 +93,7 @@ def build_actions(resolved: ResolvedConfig) -> list:
         LogInfo(
             msg=(
                 f"robot_bringup mode={resolved.instrumentation_mode} "
+                f"backend={resolved.backend} "
                 f"log_level={resolved.log_level} "
                 f"enabled=[{', '.join(sorted(on))}] "
                 f"disabled=[{', '.join(off)}]"
@@ -83,6 +103,10 @@ def build_actions(resolved: ResolvedConfig) -> list:
 
     launched, pending = [], []
     for name in sorted(on):
+        # This required component is selected by the backend, below, rather
+        # than by a generic node entry.
+        if name == "drivers":
+            continue
         specs = NODE_SPECS.get(name)
         if not specs:
             pending.append(name)
@@ -98,6 +122,29 @@ def build_actions(resolved: ResolvedConfig) -> list:
 
         actions.extend(_node_action(spec, resolved.log_level) for spec in specs)
         launched.append(name)
+
+    if resolved.enabled["drivers"]:
+        if resolved.backend == "isaac":
+            actions.append(
+                LogInfo(
+                    msg=(
+                        "robot_bringup: backend=isaac launches no adapter. Configure Isaac's ROS 2 "
+                        "graph to use the canonical AMR topics directly."
+                    )
+                )
+            )
+            launched.append("backend:isaac")
+        elif resolved.backend == "rosbag":
+            pending.append(
+                "drivers (rosbag backend selected; replay launch waits for a bag manifest and /clock policy)"
+            )
+        else:
+            spec = MOTION_BACKEND_SPECS["hardware"]
+            if not package_available(spec["package"]):
+                pending.append(f"drivers ({resolved.backend} package not built: {spec['package']})")
+            else:
+                actions.append(_node_action(spec, resolved.log_level))
+                launched.append(f"drivers:{resolved.backend}")
 
     if pending:
         actions.append(

@@ -8,12 +8,14 @@ from launch_lib.paths import read_yaml
 from launch_lib.tiers import LOCKED_MODES, REQUIRED, TIERS, TOGGLE_NAMES, tier_of
 
 VALID_MODES = ("debug", "profile", "production")
+VALID_BACKENDS = ("hardware", "isaac", "rosbag")
 
 
 @dataclass
 class ResolvedConfig:
     args: dict
     instrumentation_mode: str
+    backend: str
     log_level: str
     runtime_behaviour: dict
     #: toggle name -> enabled. Every name in TOGGLE_NAMES is present.
@@ -53,6 +55,13 @@ def resolve_mode(args: dict, system_modes: dict, runtime_modes: dict) -> str:
     if mode not in runtime_modes["instrumentation_modes"]:
         raise RuntimeError(f"runtime_modes.yaml is missing instrumentation mode '{mode}'.")
     return mode
+
+
+def resolve_backend(args: dict) -> str:
+    backend = args["backend"]
+    if backend not in VALID_BACKENDS:
+        raise RuntimeError(f"Unknown backend '{backend}'. Expected one of {VALID_BACKENDS}.")
+    return backend
 
 
 def check_toggle_coverage(yaml_toggles: dict) -> None:
@@ -131,6 +140,7 @@ def resolve_config(context) -> ResolvedConfig:
     check_toggle_coverage(system_modes["toggles"])
 
     mode = resolve_mode(args, system_modes, runtime_modes)
+    backend = resolve_backend(args)
     runtime_behaviour = runtime_modes["instrumentation_modes"][mode] or {}
 
     enabled = resolve_toggles(args, mode, system_modes["toggles"])
@@ -139,6 +149,7 @@ def resolve_config(context) -> ResolvedConfig:
     return ResolvedConfig(
         args=args,
         instrumentation_mode=mode,
+        backend=backend,
         log_level=runtime_behaviour.get("log_level", "info"),
         runtime_behaviour=runtime_behaviour,
         enabled=enabled,

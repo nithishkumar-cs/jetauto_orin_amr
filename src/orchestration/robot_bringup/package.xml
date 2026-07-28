@@ -14,6 +14,7 @@
   <!-- Node packages are added back here as each is rebuilt; see
        launch_lib/actions.py NODE_SPECS for the matching launch entry. -->
   <exec_depend>nav2_collision_monitor</exec_depend>
+  <exec_depend>perception_detection_depth_projection</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

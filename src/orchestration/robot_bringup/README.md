@@ -11,13 +11,15 @@ Primary entrypoint:
 Primary launch axes:
 
 - `instrumentation_mode`: `debug`, `profile`, or `production`
-- `detector_backend`: `debug`, `yolo`, or `rf_detr`
-- component toggles: `enable_sensor_drivers`, `enable_preproc`,
-  `enable_depth_pipeline`, `enable_teleop`, `enable_localization`,
-  `enable_navigation_tasks`, `enable_benchmarks`
+- `backend`: `hardware`, `isaac`, or `rosbag`; selects exactly one source edge
+- component toggles: `enable_drivers`, `enable_preproc`, `enable_detector`,
+  `enable_geometry`, `enable_tracking`, `enable_fusion`, and the remaining
+  entries in `configs/runtime_modes/system_modes.yaml`
 
 `system_modes.yaml` lives at the package root and defines two component sets:
 one shared by `debug` and `profile`, and one for `production`. Launch arguments
-can override component toggles when needed. Base hardware drivers, simulator
-bridges, and rosbag playback should consume `/cmd_vel/safety_limited` directly
-and publish `/odom/wheel` directly.
+can override component toggles when needed. The default `backend:=hardware`
+will start `base_driver` once that package exists. `backend:=isaac` launches no
+adapter: configure Isaac's ROS 2 graph to publish and consume the canonical AMR
+topics directly. `backend:=rosbag` is reserved for a replay launch, which will
+be added after the bag manifest and simulation-time policy are defined.

@@ -48,7 +48,7 @@ decisions below.
 - **Modes** (kept: `debug` + `profile` + `production`). `debug`/`profile` have per-node toggles where `false` ⇒ synthetic substitution; `production` is locked (no toggles). Mode *behavior* (log/assert/timing/metrics) lives in `runtime_modes.yaml`. **Constraint: `safety` may be `false` only when `drivers` is `false`.**
 - **Config homes.** Per-package `config/` = node default params; top-level `configs/` = deployment/robot config + mode config. Everything is read from the *installed* share path, so `--symlink-install` (or overriding the path launch-arg) is what makes edits live without a rebuild — location does not change that.
 - **`src/<layer>/<pkg>/src` nesting is correct.** Outer `src` = colcon source space; inner `src` = ament C++ sources. colcon discovers packages by `package.xml` recursively, by name not path. **Every** package sits at `src/<layer>/<pkg>/` — `robot_bringup` was the last exception and moved to `src/orchestration/robot_bringup/` on 2026-07-26.
-- **Package names must stand alone.** ROS package names are a flat global namespace, so the layer folder provides no scoping: `src/perception/geometry/` holds a package *named* `perception_geometry`. Do not name a package after its folder alone (`safety`, `geometry`) — and avoid stutter (`safety/safety_layer`), which is why the operator-stop component is `estop_gate` and the orchestrator layer is `orchestration`, not `bringup`.
+- **Package names must stand alone.** ROS package names are a flat global namespace, so the layer folder provides no scoping: `src/perception/detection_depth_projection/` holds a package *named* `perception_detection_depth_projection`. Do not name a package after its folder alone (`safety`, `geometry`) — and avoid stutter (`safety/safety_layer`), which is why the operator-stop component is `estop_gate` and the orchestrator layer is `orchestration`, not `bringup`.
 - **Launch files live in `<pkg>/launch/`.** `launch_lib/` installs as a *sibling*, so `robot_stack.launch.py` puts its parent directory on `sys.path`, not its own.
 
 ## robot_bringup (REBUILT — launches clean, launches nothing)
@@ -106,9 +106,17 @@ Use ROS Humble: `source /opt/ros/humble/setup.bash`.
   publishing yet** — `/scan` is declared but no driver exists — so it currently
   gates nothing.
 - `robot_bringup` rebuilt; see above.
+- `robot_bringup` selects a backend: `hardware`, `isaac`, or `rosbag`.
+  `backend:=isaac` launches no adapter: Isaac's ROS 2 graph must publish and
+  consume the canonical AMR topics directly. `base_driver` and replay support
+  remain to be rebuilt.
+- `perception_detection_depth_projection` rebuilt. It synchronizes standard 2D detections,
+  aligned depth, and CameraInfo; takes a median depth from each box's center
+  ROI; and publishes standard `vision_msgs/Detection3DArray` in the depth
+  camera optical frame. Its pure projection core has synthetic-depth tests.
 
-**Next:** `sensor_drivers` under `src/drivers/` for the lidar, which is what makes
-collision_monitor do anything at all.
+**Next:** configure an Isaac scene and verify the full graph. The hardware
+`base_driver` remains to be rebuilt under `src/drivers/`.
 
 **Unvalidated:** the zone sizes in `collision_monitor.yaml` (stop 0.55 m, slow
 1.25 m, 35% throttle) were carried over from the old radial design and have
