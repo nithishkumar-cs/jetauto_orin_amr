@@ -1,48 +1,31 @@
 #include "perception_detection_depth_projection/detection_depth_projection_node.hpp"
 
 #include <cstdint>
-#include <cstring>
 #include <functional>
 #include <optional>
+#include <stdexcept>
+
+#include "geometry_msgs/msg/pose.hpp"
 
 namespace perception_detection_depth_projection
 {
 namespace
 {
 
-std::optional<DepthImage> depth_image_from_message(const sensor_msgs::msg::Image & message)
+std::optional<DepthImageView> depth_view_from_ros_message(const sensor_msgs::msg::Image & message)
 {
-  if (message.data.size() < static_cast<std::size_t>(message.step) * message.height) {
+  DepthEncoding encoding;
+  if (message.encoding == "32FC1") {
+    encoding = DepthEncoding::FLOAT32_METERS;
+  } else if (message.encoding == "16UC1") {
+    encoding = DepthEncoding::UINT16_MILLIMETERS;
+  } else {
     return std::nullopt;
   }
-  const auto pixel_count = static_cast<std::size_t>(message.width) * message.height;
-  DepthImage depth{message.width, message.height, {}};
-  depth.values_m.reserve(pixel_count);
 
-  if (message.encoding == "32FC1" && message.step >= message.width * sizeof(float)) {
-    for (std::size_t row = 0U; row < message.height; ++row) {
-      for (std::size_t column = 0U; column < message.width; ++column) {
-        float value;
-        std::memcpy(
-          &value, message.data.data() + row * message.step + column * sizeof(float), sizeof(value));
-        depth.values_m.push_back(value);
-      }
-    }
-    return depth;
-  }
-  if (message.encoding == "16UC1" && message.step >= message.width * sizeof(std::uint16_t)) {
-    for (std::size_t row = 0U; row < message.height; ++row) {
-      for (std::size_t column = 0U; column < message.width; ++column) {
-        std::uint16_t value_mm;
-        std::memcpy(
-          &value_mm, message.data.data() + row * message.step + column * sizeof(value_mm),
-          sizeof(value_mm));
-        depth.values_m.push_back(static_cast<float>(value_mm) / 1000.0F);
-      }
-    }
-    return depth;
-  }
-  return std::nullopt;
+  return DepthImageView::create(
+    message.width, message.height, message.step, encoding, message.is_bigendian != 0U,
+    message.data.data(), message.data.size());
 }
 
 }  // namespace
@@ -59,12 +42,16 @@ DetectionDepthProjectionNode::DetectionDepthProjectionNode(const rclcpp::NodeOpt
   const auto detections_in_topic =
     declare_parameter<std::string>("detections_in_topic", "/perception/detections_2d");
   const auto depth_in_topic =
-    declare_parameter<std::string>("depth_in_topic", "/camera/depth/image_raw");
+    declare_parameter<std::string>("depth_in_topic", "/camera/aligned_depth_to_rgb/image_raw");
   const auto camera_info_in_topic =
-    declare_parameter<std::string>("camera_info_in_topic", "/camera/depth/camera_info");
+    declare_parameter<std::string>("camera_info_in_topic", "/camera/rgb/camera_info");
   const auto detections_out_topic =
     declare_parameter<std::string>("detections_out_topic", "/perception/detections_3d");
   const auto sync_queue_size = declare_parameter<int>("sync_queue_size", 10);
+  const auto sync_max_interval_ms = declare_parameter<int>("sync_max_interval_ms", 50);
+  if (sync_queue_size <= 0 || sync_max_interval_ms < 0) {
+    throw std::invalid_argument("Sync queue size must be positive and max interval non-negative.");
+  }
 
   publisher_ = create_publisher<vision_msgs::msg::Detection3DArray>(detections_out_topic, 10);
   detections_subscription_.subscribe(
@@ -76,6 +63,8 @@ DetectionDepthProjectionNode::DetectionDepthProjectionNode(const rclcpp::NodeOpt
   synchronizer_ = std::make_shared<message_filters::Synchronizer<SyncPolicy>>(
     SyncPolicy(sync_queue_size), detections_subscription_, depth_subscription_,
     camera_info_subscription_);
+  synchronizer_->setMaxIntervalDuration(
+    rclcpp::Duration::from_seconds(static_cast<double>(sync_max_interval_ms) / 1000.0));
   synchronizer_->registerCallback(std::bind(
     &DetectionDepthProjectionNode::on_synchronized_input, this, std::placeholders::_1,
     std::placeholders::_2, std::placeholders::_3));
@@ -87,20 +76,21 @@ void DetectionDepthProjectionNode::on_synchronized_input(
   const sensor_msgs::msg::CameraInfo::ConstSharedPtr & camera_info)
 {
   if (
+    camera_info->header.frame_id.empty() ||
     camera_info->header.frame_id != depth_message->header.frame_id ||
-    (!detections->header.frame_id.empty() &&
-     detections->header.frame_id != depth_message->header.frame_id)) {
+    detections->header.frame_id != depth_message->header.frame_id ||
+    camera_info->width != depth_message->width || camera_info->height != depth_message->height) {
     RCLCPP_WARN_THROTTLE(
       get_logger(), *get_clock(), 5000,
-      "Detection, depth, and camera-info frames must match before depth projection.");
+      "Detections, aligned depth, and CameraInfo must use one frame and image size.");
     return;
   }
 
-  const auto depth = depth_image_from_message(*depth_message);
+  const auto depth = depth_view_from_ros_message(*depth_message);
   if (!depth) {
     RCLCPP_WARN_THROTTLE(
       get_logger(), *get_clock(), 5000,
-      "Depth encoding must be 16UC1 (millimetres) or 32FC1 (metres).");
+      "Depth image must have a valid buffer and use 16UC1 (millimetres) or 32FC1 (metres).");
     return;
   }
 
@@ -122,20 +112,22 @@ void DetectionDepthProjectionNode::on_synchronized_input(
       continue;
     }
 
+    geometry_msgs::msg::Pose projected_pose;
+    projected_pose.position.x = projection->x_m;
+    projected_pose.position.y = projection->y_m;
+    projected_pose.position.z = projection->z_m;
+    projected_pose.orientation.w = 1.0;
+
     vision_msgs::msg::Detection3D projected_detection;
     projected_detection.header = output.header;
-    projected_detection.results = detection.results;
-    for (auto & result : projected_detection.results) {
-      result.pose.pose.position.x = projection->x_m;
-      result.pose.pose.position.y = projection->y_m;
-      result.pose.pose.position.z = projection->z_m;
-      result.pose.pose.orientation.w = 1.0;
+    projected_detection.results.reserve(detection.results.size());
+    for (const auto & result_2d : detection.results) {
+      auto & result_3d = projected_detection.results.emplace_back();
+      result_3d.hypothesis = result_2d.hypothesis;
+      result_3d.pose.pose = projected_pose;
     }
     projected_detection.id = detection.id;
-    projected_detection.bbox.center.position.x = projection->x_m;
-    projected_detection.bbox.center.position.y = projection->y_m;
-    projected_detection.bbox.center.position.z = projection->z_m;
-    projected_detection.bbox.center.orientation.w = 1.0;
+    projected_detection.bbox.center = projected_pose;
     projected_detection.bbox.size.x = projection->width_m;
     projected_detection.bbox.size.y = projection->height_m;
     projected_detection.bbox.size.z = 0.0;

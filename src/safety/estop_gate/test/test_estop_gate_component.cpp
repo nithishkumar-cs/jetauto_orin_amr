@@ -17,7 +17,7 @@ namespace
 
 using namespace std::chrono_literals;
 
-class EstopGateNodeTest : public ::testing::Test
+class EstopGateComponentTest : public ::testing::Test
 {
 protected:
   void SetUp() override
@@ -147,14 +147,14 @@ protected:
   std::vector<geometry_msgs::msg::Twist> outputs_;
 };
 
-TEST_F(EstopGateNodeTest, ForwardsCommandWhileClear)
+TEST_F(EstopGateComponentTest, ForwardsCommandWhileClear)
 {
   publish_command(0.4);
   ASSERT_TRUE(wait_for_output());
   EXPECT_DOUBLE_EQ(last_output().linear.x, 0.4);
 }
 
-TEST_F(EstopGateNodeTest, LatchesStopAndBlocksCommands)
+TEST_F(EstopGateComponentTest, LatchesStopAndBlocksCommands)
 {
   publish_bool(estop_publisher_, true);
   ASSERT_TRUE(wait_for_output());
@@ -165,7 +165,7 @@ TEST_F(EstopGateNodeTest, LatchesStopAndBlocksCommands)
   EXPECT_DOUBLE_EQ(last_output().linear.x, 0.0);
 }
 
-TEST_F(EstopGateNodeTest, ResetAllowsCommandsAgain)
+TEST_F(EstopGateComponentTest, ResetAllowsCommandsAgain)
 {
   publish_bool(estop_publisher_, true);
   ASSERT_TRUE(wait_for_output());
@@ -177,7 +177,7 @@ TEST_F(EstopGateNodeTest, ResetAllowsCommandsAgain)
   EXPECT_DOUBLE_EQ(last_output().linear.x, 0.4);
 }
 
-TEST_F(EstopGateNodeTest, HandlesConcurrentControlTraffic)
+TEST_F(EstopGateComponentTest, HandlesConcurrentControlTraffic)
 {
   constexpr int message_count = 100;
   std::thread executor_thread([this] { executor_.spin(); });

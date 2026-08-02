@@ -1,11 +1,14 @@
 perception_detection_depth_projection:
   ros__parameters:
+    # The detector must publish boxes in the original RGB image's pixel grid.
     detections_in_topic: "/perception/detections_2d"
-    depth_in_topic: "/camera/depth/image_raw"
-    camera_info_in_topic: "/camera/depth/camera_info"
+    # Depth must already be registered into that same RGB pixel grid.
+    depth_in_topic: "/camera/aligned_depth_to_rgb/image_raw"
+    camera_info_in_topic: "/camera/rgb/camera_info"
     detections_out_topic: "/perception/detections_3d"
     center_roi_fraction: 0.25
     min_depth_m: 0.15
     max_depth_m: 8.0
     min_valid_samples: 5
     sync_queue_size: 10
+    sync_max_interval_ms: 50

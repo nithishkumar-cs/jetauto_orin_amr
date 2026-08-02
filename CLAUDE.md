@@ -111,9 +111,12 @@ Use ROS Humble: `source /opt/ros/humble/setup.bash`.
   consume the canonical AMR topics directly. `base_driver` and replay support
   remain to be rebuilt.
 - `perception_detection_depth_projection` rebuilt. It synchronizes standard 2D detections,
-  aligned depth, and CameraInfo; takes a median depth from each box's center
-  ROI; and publishes standard `vision_msgs/Detection3DArray` in the depth
-  camera optical frame. Its pure projection core has synthetic-depth tests.
+  aligned depth, and CameraInfo within a configurable bounded interval; takes
+  a median depth from each box's center ROI; and publishes standard
+  `vision_msgs/Detection3DArray` in the shared RGB/depth camera optical frame.
+  Its projection and depth-decoding logic have ROS-independent unit tests, and
+  its topics, QoS, synchronization, validation, and publishing path have ROS
+  component tests.
 
 **Next:** configure an Isaac scene and verify the full graph. The hardware
 `base_driver` remains to be rebuilt under `src/drivers/`.

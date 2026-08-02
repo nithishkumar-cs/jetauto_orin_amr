@@ -1,9 +1,9 @@
-#ifndef PERCEPTION_GEOMETRY__DEPTH_PROJECTOR_HPP_
-#define PERCEPTION_GEOMETRY__DEPTH_PROJECTOR_HPP_
+#ifndef PERCEPTION_DETECTION_DEPTH_PROJECTION__DEPTH_PROJECTOR_HPP_
+#define PERCEPTION_DETECTION_DEPTH_PROJECTION__DEPTH_PROJECTOR_HPP_
 
 #include <cstddef>
+#include <cstdint>
 #include <optional>
-#include <vector>
 
 namespace perception_detection_depth_projection
 {
@@ -24,11 +24,34 @@ struct BoundingBox2D
   double size_y{0.0};
 };
 
-struct DepthImage
+enum class DepthEncoding {
+  FLOAT32_METERS,
+  UINT16_MILLIMETERS,
+};
+
+// Non-owning view. The source buffer must remain alive while this view is used.
+class DepthImageView
 {
-  std::size_t width{0U};
-  std::size_t height{0U};
-  std::vector<float> values_m;
+public:
+  static std::optional<DepthImageView> create(
+    std::size_t width, std::size_t height, std::size_t row_step_bytes, DepthEncoding encoding,
+    bool is_big_endian, const std::uint8_t * data, std::size_t data_size_bytes);
+
+  std::size_t width() const;
+  std::size_t height() const;
+  std::optional<float> value_m(std::size_t row, std::size_t column) const;
+
+private:
+  DepthImageView(
+    std::size_t width, std::size_t height, std::size_t row_step_bytes, DepthEncoding encoding,
+    bool is_big_endian, const std::uint8_t * data);
+
+  std::size_t width_;
+  std::size_t height_;
+  std::size_t row_step_bytes_;
+  DepthEncoding encoding_;
+  bool is_big_endian_;
+  const std::uint8_t * data_;
 };
 
 struct Projection
@@ -54,7 +77,7 @@ public:
   explicit DepthProjector(DepthProjectorConfig config = {});
 
   std::optional<Projection> project(
-    const BoundingBox2D & bbox, const DepthImage & depth,
+    const BoundingBox2D & bbox, const DepthImageView & depth,
     const CameraIntrinsics & intrinsics) const;
 
 private:
@@ -63,4 +86,4 @@ private:
 
 }  // namespace perception_detection_depth_projection
 
-#endif  // PERCEPTION_GEOMETRY__DEPTH_PROJECTOR_HPP_
+#endif  // PERCEPTION_DETECTION_DEPTH_PROJECTION__DEPTH_PROJECTOR_HPP_
