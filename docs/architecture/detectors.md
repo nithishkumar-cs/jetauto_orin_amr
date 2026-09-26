@@ -1,45 +1,90 @@
-# Detector Roadmap
+# Detector architecture
 
-## Phase 1: Debug Backend
+`perception_detector` keeps the stable boundary at the ROS and C++ contracts:
 
-The debug backend publishes a deterministic center detection. It exists only to validate graph timing, message contracts, visualization, and downstream safety plumbing before a model engine is available.
+```text
+rectified RGB image
+        ↓
+DetectorBackend → normalized pixel-grid detections
+        ↓
+vision_msgs/Detection2DArray
+```
 
-## Phase 2: YOLO TensorRT
+The robot runtime is C++/TensorRT only. Training is external to this workspace;
+ONNX is a one-time input used to build a device-local TensorRT engine. There is
+no deployed Python, PyTorch, or ONNX Runtime backend.
 
-YOLO is the first real detector path. It should be used to prove:
+`DetectorNode` owns only the ROS image/detection flow and the generic
+`DetectorBackend` contract. The production constructor asks the backend factory
+to select and configure the implementation from the node-scoped `backend`
+parameter. Concrete model/runtime configuration remains in that factory.
 
-- camera timing
-- CUDA preprocessing
-- TensorRT engine loading
-- postprocessing format
-- detection rate and latency reporting
-- benchmark harness behavior
+## Current backend: YOLO26 TensorRT
 
-Config: `src/perception/inference_core/config/yolo_detector.yaml`.
+The implementation includes:
 
-## Phase 3: RF-DETR TensorRT
+- zero-copy validation of the incoming ROS image buffer;
+- one internal YOLO preprocessing interface whose implementations write to the
+  same TensorRT device-buffer/stream destination and return the same letterbox
+  transform;
+- selectable `cuda` preprocessing (the deployment default), with one fused
+  kernel for RGB/BGR conversion, bilinear resize, letterboxing, CHW
+  normalization, and direct FP32/FP16 TensorRT-input writes;
+- selectable `cpu` preprocessing, which uses the portable reference algorithm
+  before uploading the completed tensor, for correctness and performance
+  comparisons;
+- a private reusable TensorRT session that owns engine deserialization, name-based
+  tensor binding, shape resolution, CUDA buffers and stream, enqueueing, and
+  output downloads;
+- fixed and dynamic NCHW engine inputs;
+- float32 and float16 input/output tensors;
+- raw YOLO and native end-to-end output layouts;
+- class-aware NMS for raw output only; YOLO26 end-to-end output is never
+  suppressed a second time;
+- conversion from the letterboxed network grid back to the original image grid;
+- standard ROS publishing with the source image header.
 
-RF-DETR should plug into the same `DetectorBackend` API and publish the same `Detection2DArray` output. The RF-DETR work should focus on:
+The TensorRT engine and labels are required deployment files. `robot_bringup`
+reports the detector as pending instead of launching it when either is missing.
+The node never substitutes fake detections.
 
-- ONNX export shape stability
-- TensorRT parser/plugin blockers
-- FP16 and INT8 feasibility
-- memory footprint on Orin Nano
-- latency versus YOLO/baseline detectors
-- quality/latency tradeoff reporting
+The current deployment is the official YOLO26n COCO model exported as fixed
+`1×3×640×640` ONNX and built as an FP16 TensorRT 10.3 engine on the Orin. The
+engine and labels are installed at the paths in `configs/perception/detector.yaml`.
+The exact artifact hashes and Jetson benchmark are recorded in the package
+README.
 
-Config: `src/perception/inference_core/config/rf_detr_detector.yaml`.
+Preprocessing selection is deliberately below `DetectorBackend`: it is an
+implementation detail of the YOLO TensorRT backend, not a capability every
+detector architecture must expose. A future RF-DETR backend can define its own
+processing pipeline while preserving the detector-node contract and reusing the
+same private TensorRT session.
 
-## Required Report
+## Adding another architecture
 
-Each detector run should record:
+Implement `DetectorBackend`, register it in the backend factory, and return
+finite, positive-area boxes fully contained in the original image grid, with
+scores in `[0, 1]` and non-empty class IDs. RF-DETR can therefore use different
+preprocessing, tensors, and decoding without changing the detector node, depth
+projection, tracking, or fusion.
 
-- engine path and model version
-- precision mode
-- input resolution
-- preproc latency
-- inference latency
-- postprocess latency
-- end-to-end detection latency
-- GPU memory use
-- observed failures or dropped frames
+Each real backend must be checked against the same ROS contract and should add
+golden preprocessing/postprocessing vectors plus a real-engine smoke test on the
+Jetson. The node component tests use an injected fake backend only to exercise
+ROS topics, QoS, headers, and publishing deterministically.
+
+The YOLO backend also has an optional node integration test that uses real ROS
+topics, CUDA, TensorRT, the installed engine, and the production backend factory.
+Its input image is generated by the test, so the test covers the complete node
+without requiring a camera driver. Isaac or hardware tests remain system-level
+tests because they include additional production nodes.
+
+## Required benchmark record
+
+Each detector evaluation should record:
+
+- engine path and model version;
+- precision and input resolution;
+- preprocessing, inference, postprocessing, and end-to-end latency;
+- GPU memory use and dropped frames;
+- observed conversion or detection failures.

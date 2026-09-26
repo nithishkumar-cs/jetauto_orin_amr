@@ -1,8 +1,10 @@
+from pathlib import Path
+
 from launch.actions import LogInfo
 from launch_ros.actions import Node
 
 from launch_lib.config import ResolvedConfig
-from launch_lib.paths import package_available, project_config
+from launch_lib.paths import package_available, project_config, read_yaml
 from launch_lib.tiers import TIERS
 
 #: toggle name -> LIST of node specs, for components that have been rebuilt.
@@ -19,12 +21,56 @@ from launch_lib.tiers import TIERS
 #:         "executable": "detector_node",
 #:     },
 NODE_SPECS: dict = {
+    "detector": [
+        {
+            "package": "perception_detector",
+            "executable": "detector_node",
+            "name": "perception_detector",
+            "parameters": [str(project_config("perception", "detector.yaml"))],
+            # The node is required and fail-fast. Report it as pending if its
+            # device-local engine or matching labels are ever removed.
+            "required_file_parameters": ["engine_path", "labels_path"],
+        },
+    ],
     "geometry": [
         {
             "package": "perception_detection_depth_projection",
             "executable": "detection_depth_projection_node",
             "name": "detection_depth_projection",
             "parameters": [str(project_config("perception", "detection_depth_projection.yaml"))],
+        },
+    ],
+    "lidar_clustering": [
+        {
+            "package": "perception_lidar_clustering",
+            "executable": "lidar_clustering_node",
+            "name": "perception_lidar_clustering",
+            "parameters": [str(project_config("perception", "lidar_clustering.yaml"))],
+        },
+    ],
+    # Camera and LiDAR observations are tracked independently so identities are
+    # stable before the fusion stage decides whether the two streams describe
+    # the same physical obstacle.
+    "tracking": [
+        {
+            "package": "perception_tracking",
+            "executable": "tracking_node",
+            "name": "perception_camera_tracker",
+            "parameters": [str(project_config("perception", "tracking.yaml"))],
+        },
+        {
+            "package": "perception_tracking",
+            "executable": "tracking_node",
+            "name": "perception_lidar_tracker",
+            "parameters": [str(project_config("perception", "tracking.yaml"))],
+        },
+    ],
+    "fusion": [
+        {
+            "package": "perception_fusion",
+            "executable": "fusion_node",
+            "name": "perception_fusion",
+            "parameters": [str(project_config("perception", "fusion.yaml"))],
         },
     ],
     # Obstacle-zone half of the safety chain. Upstream package, so it is
@@ -85,6 +131,27 @@ def _node_action(spec: dict, log_level: str) -> Node:
     )
 
 
+def _missing_required_files(spec: dict) -> list[str]:
+    required_names = spec.get("required_file_parameters", [])
+    if not required_names:
+        return []
+
+    parameter_values = {}
+    for parameter_source in spec.get("parameters", []):
+        if not isinstance(parameter_source, str):
+            continue
+        config = read_yaml(Path(parameter_source))
+        node_config = config.get(spec.get("name", spec["executable"]), {})
+        parameter_values.update(node_config.get("ros__parameters", {}))
+
+    missing = []
+    for name in required_names:
+        value = parameter_values.get(name)
+        if not isinstance(value, str) or not value or not Path(value).is_file():
+            missing.append(f"{name}={value or '<not configured>'}")
+    return missing
+
+
 def build_actions(resolved: ResolvedConfig) -> list:
     on = [name for name, enabled in resolved.enabled.items() if enabled]
     off = resolved.synthetic
@@ -118,6 +185,15 @@ def build_actions(resolved: ResolvedConfig) -> list:
         missing = [s["package"] for s in specs if not package_available(s["package"])]
         if missing:
             pending.append(f"{name} (packages not built: {', '.join(sorted(set(missing)))})")
+            continue
+
+        missing_files = [
+            missing_file
+            for spec in specs
+            for missing_file in _missing_required_files(spec)
+        ]
+        if missing_files:
+            pending.append(f"{name} (runtime files missing: {', '.join(missing_files)})")
             continue
 
         actions.extend(_node_action(spec, resolved.log_level) for spec in specs)

@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>perception_tracking</name>
+  <version>0.1.0</version>
+  <description>Tracks camera and planar LiDAR obstacle observations over time.</description>
+  <maintainer email="nithish@example.com">Nithish</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>amr_interfaces</depend>
+  <depend>eigen</depend>
+  <depend>geometry_msgs</depend>
+  <depend>rclcpp</depend>
+  <depend>tf2</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <depend>tf2_ros</depend>
+  <depend>vision_msgs</depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

@@ -4,9 +4,11 @@
 
 1. System orchestration: `robot_bringup` under `src/orchestration/robot_bringup`.
 2. Platform integration: `sensor_drivers`, `tf_and_calibration`, plus hardware drivers and simulator bridges as needed.
-3. High-performance perception: `cuda_common`, `perception_preproc`, `perception_inference`.
-4. Robotics interpretation: `perception_geometry`, `tracking_fusion`, `sensor_fusion`.
-5. Safety and operations: `safety_layer`, `navigation_tasks`, `logging_and_diagnostics`.
+3. High-performance perception: `perception_detector`.
+4. Robotics interpretation: `perception_detection_depth_projection`,
+   `perception_lidar_clustering`, `perception_tracking`, and `perception_fusion`.
+5. Safety and operations: `nav2_collision_monitor`, `estop_gate`, navigation,
+   and diagnostics.
 6. Measurement: `benchmarks`, `evaluation_tools`.
 
 The debug mode is intentionally 2D-first. It proves image capture, CUDA preprocessing, detector wiring, and health reporting with the robot hardware path. The profile and production modes expand the launched subsystem set through `system_modes.yaml`.
@@ -15,17 +17,32 @@ The debug mode is intentionally 2D-first. It proves image capture, CUDA preproce
 
 ```text
 RGB/depth camera
-  -> sensor_drivers
-  -> perception_preproc CUDA path
-  -> perception_inference detector backend
-  -> perception_geometry depth lifting
-  -> tracking_fusion
-  -> sensor_fusion
-  -> safety_layer
-  -> base driver or simulator bridge
+  -> perception_detector
+  -> perception_detection_depth_projection -> camera tracker --+
+                                                              +-> perception_fusion
+2D LiDAR -> /scan -> perception_lidar_clustering -> lidar tracker+
+
+/scan -> nav2_collision_monitor -> estop_gate -> base driver or simulator
 ```
 
-The detector node accepts backend names (`debug`, `yolo_tensorrt`, `rf_detr_tensorrt`) without changing downstream topics. That makes RF-DETR an implementation swap plus benchmark comparison, not a graph redesign.
+The detector node selects implementations through a backend factory without
+changing downstream topics. `yolo_tensorrt` is currently registered; adding
+RF-DETR means implementing the shared contract and registering its factory entry,
+not redesigning the ROS graph.
+
+The two tracking processes use the same `perception_tracking` executable with
+different topic and source parameters. Both track in `odom`, so robot motion is
+removed from obstacle velocity estimates, then publish in `base_link` for
+fusion and robot-local consumers. The required time-aligned TF chain is supplied
+by localization (wheel odometry plus IMU) and the sensor extrinsic transforms;
+the tracker does not consume raw IMU messages directly.
+
+`perception_fusion` approximately synchronizes the two track streams within a
+strict time bound, associates tracks one-to-one in `base_link`, and combines
+matched planar position and velocity using their covariance. Unmatched evidence
+is preserved. Its identity registry produces globally unique fused IDs that
+remain stable as a source appears or disappears. The output contract is
+`/perception/fused_obstacles` (`amr_interfaces/TrackedObstacleArray`).
 
 ## Hot-Path Policy
 

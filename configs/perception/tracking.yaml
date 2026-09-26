@@ -1,0 +1,41 @@
+perception_camera_tracker:
+  ros__parameters:
+    observations_in_topic: "/perception/detections_3d"
+    tracks_out_topic: "/perception/camera/tracks"
+    source: "camera"
+    tracking_frame: "odom"
+    output_frame: "base_link"
+    observations_queue_size: 10
+    transform_timeout_ms: 50
+    association_distance_m: 0.75
+    process_noise_acceleration_stddev_mps2: 1.0
+    measurement_noise_position_stddev_m: 0.15
+    initial_position_stddev_m: 0.15
+    initial_velocity_stddev_mps: 1.0
+    max_unobserved_duration_s: 0.50
+    min_confirmed_hits: 2
+    dynamic_speed_threshold_mps: 0.20
+    unobserved_state_variance: 1000000.0
+
+perception_lidar_tracker:
+  ros__parameters:
+    observations_in_topic: "/perception/lidar/clusters"
+    tracks_out_topic: "/perception/lidar/tracks"
+    source: "lidar"
+    tracking_frame: "odom"
+    output_frame: "base_link"
+    observations_queue_size: 10
+    transform_timeout_ms: 50
+    association_distance_m: 0.75
+    process_noise_acceleration_stddev_mps2: 1.0
+    measurement_noise_position_stddev_m: 0.05
+    initial_position_stddev_m: 0.05
+    initial_velocity_stddev_mps: 1.0
+    max_unobserved_duration_s: 0.50
+    min_confirmed_hits: 2
+    dynamic_speed_threshold_mps: 0.20
+    unobserved_state_variance: 1000000.0
+
+# These are safe starting values for development, not calibrated production
+# values. Tune association, noise, confirmation, expiry, and motion thresholds
+# against representative Isaac scenes and recorded hardware data.

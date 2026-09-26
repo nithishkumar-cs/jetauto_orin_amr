@@ -1,0 +1,26 @@
+perception_detector:
+  ros__parameters:
+    # Must share the original RGB pixel grid used by aligned depth and CameraInfo.
+    image_in_topic: "/camera/rgb/image_rect_color"
+    detections_out_topic: "/perception/detections_2d"
+    # Keep only the newest camera frame if inference cannot match camera rate.
+    image_queue_size: 1
+
+    backend: "yolo_tensorrt"
+    model_architecture: "yolo26"
+    # Use "cpu" only as a correctness/performance baseline.
+    preprocessing_backend: "cuda"
+    engine_path: "/opt/jetauto_orin_amr/models/detector/yolo26n_fp16.engine"
+    labels_path: "/opt/jetauto_orin_amr/models/detector/coco80.labels"
+    # Leave names empty when the engine has exactly one input and one output.
+    input_tensor_name: ""
+    output_tensor_name: ""
+    # Used only for an engine with a dynamic input shape.
+    dynamic_input_width: 640
+    dynamic_input_height: 640
+
+    # YOLO26 exports native end-to-end detections, so the node must not run NMS again.
+    output_format: "end_to_end_xyxy"
+    confidence_threshold: 0.35
+    nms_iou_threshold: 0.45
+    max_detections: 100

@@ -23,6 +23,8 @@ TIERS = {
     "preproc": REQUIRED,
     "detector": REQUIRED,
     "geometry": REQUIRED,
+    # This processing node is selected with a LiDAR-equipped sensor suite.
+    "lidar_clustering": VARIANT,
     "tracking": REQUIRED,
     "fusion": REQUIRED,
     "safety": REQUIRED,

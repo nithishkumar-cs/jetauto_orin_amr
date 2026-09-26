@@ -1,0 +1,16 @@
+perception_fusion:
+  ros__parameters:
+    camera_tracks_in_topic: "/perception/camera/tracks"
+    lidar_tracks_in_topic: "/perception/lidar/tracks"
+    fused_obstacles_out_topic: "/perception/fused_obstacles"
+    fusion_frame: "base_link"
+    sync_queue_size: 10
+    sync_max_interval_ms: 50
+    cross_sensor_association_distance_m: 0.75
+    identity_reassociation_distance_m: 1.00
+    max_identity_age_s: 2.00
+    unobserved_state_variance: 1000000.0
+
+# These are development defaults. Tune the synchronization and association
+# bounds against measured camera/LiDAR timing and representative Isaac and
+# hardware scenes before treating the fused stream as production-calibrated.

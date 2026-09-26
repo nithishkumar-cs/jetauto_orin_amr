@@ -13,6 +13,7 @@ toggles:
   preproc:               true
   detector:              true
   geometry:              true
+  lidar_clustering:       true
   tracking:              true
   fusion:                true
   safety:                true

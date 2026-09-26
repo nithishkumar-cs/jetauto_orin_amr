@@ -117,11 +117,71 @@ Use ROS Humble: `source /opt/ros/humble/setup.bash`.
   Its projection and depth-decoding logic have ROS-independent unit tests, and
   its topics, QoS, synchronization, validation, and publishing path have ROS
   component tests.
+- `perception_detector` rebuilt. It publishes standard `vision_msgs/Detection2DArray`
+  from `/camera/rgb/image_rect_color` through a C++ `DetectorBackend` boundary.
+  The first production backend is YOLO26/TensorRT. One internal preprocessing
+  interface selects `cuda` (default) or `cpu`; both write FP32/FP16 into the same
+  TensorRT input destination and return the same letterbox transform. CUDA fuses
+  RGB/BGR, resize, letterbox, normalization, and CHW conversion in one kernel;
+  CPU is the portable correctness/performance baseline. A reusable private
+  TensorRT session now owns engine/context setup, tensor discovery and shapes,
+  device buffers, the CUDA stream, enqueueing, and downloads so later detector
+  architectures do not duplicate runtime plumbing. Postprocessing supports raw
+  or native end-to-end output and original-image coordinate recovery. Raw
+  output gets class-aware NMS; native YOLO26 output is never suppressed twice.
+  There is deliberately no deployed Python/PyTorch or ONNX Runtime backend.
+  Core and ROS component tests need no GPU; conditional device tests verify both
+  preprocessing implementations and CUDA parity with the CPU reference. A
+  conditional node integration test now runs the production node, factory,
+  CUDA, TensorRT, installed engine, postprocessing, and ROS publishing from a
+  generated RGB input. **Real YOLO26n inference is validated on this Orin:** both
+  selections produced the same five bus/person detections through real ROS
+  topics. Ten steady 810×1080 measurements averaged 19.00 ms topic-to-topic with
+  CUDA and 113.84 ms with CPU. Bringup still checks the required engine and
+  labels before launching the node.
+- `perception_lidar_clustering` rebuilt. It converts valid `/scan` ranges to
+  Cartesian points without copying the scan buffer, segments adjacent returns
+  by a configurable Euclidean gap, joins clusters across a full-circle scan
+  seam, filters small candidates, and publishes unclassified standard
+  `vision_msgs/Detection3DArray` boxes in the scan frame. The planar boxes have
+  zero Z extent because a 2D LiDAR cannot measure height. ROS-independent unit
+  tests cover validation, projection, clustering, filtering, boxes, and seam
+  handling; ROS component tests cover real topics, QoS, parameters, output
+  mapping, empty scans, and malformed input. Bringup launches it as the
+  `lidar_clustering` sensor-suite variant.
+- `perception_tracking` rebuilt. Bringup launches the same executable twice:
+  camera detections become `/perception/camera/tracks`, and unclassified LiDAR
+  clusters become `/perception/lidar/tracks`. Each instance uses a constant-
+  velocity XY Kalman filter, gated deterministic one-to-one association,
+  confirmation, short-dropout prediction, expiry, persistent IDs, covariance,
+  and dynamic/static classification. Tracking is internal to `odom` to remove
+  robot ego motion, then outputs `amr_interfaces/TrackedObstacleArray` in
+  `base_link`. It requires time-aligned sensor-to-odom and odom-to-base_link TF;
+  localization will generate that moving TF from wheel odometry and IMU rather
+  than feeding raw IMU into tracking. Eight ROS-independent core tests and six
+  ROS node-component tests pass.
+- `perception_fusion` rebuilt. It bounded-approximately synchronizes camera and
+  LiDAR `TrackedObstacleArray` streams in `base_link`, performs deterministic
+  gated one-to-one association, covariance-weights matched XY position and
+  velocity, preserves unmatched evidence, and publishes the authoritative
+  `/perception/fused_obstacles`. A source-ID registry provides globally unique
+  fused IDs that remain stable across camera-only, LiDAR-only, and paired
+  cycles. Eight ROS-independent core tests and eight ROS node-component tests
+  pass, including 25 skewed and out-of-order synchronization cycles. Both input
+  nodes must keep publishing arrays; empty arrays are supported, but an absent
+  stream cannot form a synchronized output cycle.
 
-**Next:** configure an Isaac scene and verify the full graph. The hardware
-`base_driver` remains to be rebuilt under `src/drivers/`.
+**Next:** the source-agnostic perception nodes are rebuilt. Validate the whole
+pipeline against Isaac camera/depth/LiDAR streams when Isaac is available, then
+tune detector projection, clustering, tracking, fusion timing/association, and
+covariance parameters from recorded scenes. The hardware `base_driver` remains
+to be rebuilt under `src/drivers/`.
 
 **Unvalidated:** the zone sizes in `collision_monitor.yaml` (stop 0.55 m, slow
 1.25 m, 35% throttle) were carried over from the old radial design and have
 never been measured against real stopping distance. Measure it at max speed and
-set the stop zone larger, with margin, before trusting them.
+set the stop zone larger, with margin, before trusting them. The LiDAR
+clustering defaults (0.20 m adjacent-point gap, three-point minimum) and all
+tracking and fusion timing/noise/association/expiry thresholds are also
+starting values only; tune them against representative Isaac and recorded
+hardware scenes.

@@ -1,0 +1,12 @@
+perception_lidar_clustering:
+  ros__parameters:
+    scan_in_topic: "/scan"
+    clusters_out_topic: "/perception/lidar/clusters"
+    # Sensor data should not accumulate if downstream processing falls behind.
+    scan_queue_size: 5
+    # Starting values only: tune both thresholds against the selected LiDAR's
+    # angular resolution and representative Isaac/recorded scenes.
+    # Consecutive valid returns farther apart than this start separate clusters.
+    max_adjacent_point_distance_m: 0.20
+    # Reject isolated returns and two-point noise.
+    min_cluster_points: 3
