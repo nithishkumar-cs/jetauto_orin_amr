@@ -12,7 +12,10 @@ perception_camera_tracker:
     measurement_noise_position_stddev_m: 0.15
     initial_position_stddev_m: 0.15
     initial_velocity_stddev_mps: 1.0
-    max_unobserved_duration_s: 0.50
+    # The Isaac validation run contained a 1.0 s RGB-D outage. Keep the
+    # camera identity long enough to reassociate the next observation while
+    # retaining the existing 0.75 m spatial gate.
+    max_unobserved_duration_s: 1.25
     min_confirmed_hits: 2
     dynamic_speed_threshold_mps: 0.20
     unobserved_state_variance: 1000000.0

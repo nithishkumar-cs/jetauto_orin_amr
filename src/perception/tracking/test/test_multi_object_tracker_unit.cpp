@@ -113,6 +113,21 @@ TEST(MultiObjectTrackerUnit, PredictsThroughShortDropoutAndExpiresBeforeAssociat
   EXPECT_NE(replacement.front().track_id, original_id);
 }
 
+TEST(MultiObjectTrackerUnit, ReassociatesAfterMeasuredIsaacCameraOutage)
+{
+  auto config = immediate_config();
+  config.association_distance_m = 0.75;
+  config.max_unobserved_duration_s = 1.25;
+  MultiObjectTracker tracker(config);
+  const auto initial = tracker.update(0.0, {observation(-0.19, -0.264)});
+  ASSERT_EQ(initial.size(), 1U);
+
+  const auto recovered = tracker.update(1.0, {observation(0.41, -0.274)});
+
+  ASSERT_EQ(recovered.size(), 1U);
+  EXPECT_EQ(recovered.front().track_id, initial.front().track_id);
+}
+
 TEST(MultiObjectTrackerUnit, EmptyClassificationDoesNotEraseKnownClass)
 {
   MultiObjectTracker tracker(immediate_config());
