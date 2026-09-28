@@ -1,0 +1,22 @@
+odometry_fusion:
+  ros__parameters:
+    frequency: 30.0
+    sensor_timeout: 0.2
+    two_d_mode: true
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: odom
+    # Isaac already broadcasts odom -> base_link. There must be one TF owner.
+    publish_tf: false
+    publish_acceleration: false
+
+    odom0: /odom/wheel
+    odom0_queue_size: 20
+    # Isaac currently provides no IMU. Its odometry pose must agree with its
+    # own odom -> base_link TF; fuse pose and planar velocity from that one
+    # simulated source. Its zero input covariance is not physically calibrated.
+    odom0_config: [true,  true,  false,
+                   false, false, true,
+                   true,  true,  false,
+                   false, false, true,
+                   false, false, false]

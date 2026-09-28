@@ -170,6 +170,14 @@ Use ROS Humble: `source /opt/ros/humble/setup.bash`.
   pass, including 25 skewed and out-of-order synchronization cycles. Both input
   nodes must keep publishing arrays; empty arrays are supported, but an absent
   stream cannot form a synchronized output cycle.
+- `localization_odometry_fusion` added. It wraps upstream `robot_localization`
+  EKF, publishing `/odometry/filtered` from `/odom/wheel` (and `/imu/data` yaw
+  rate on hardware). On hardware the EKF owns `odom -> base_link`; in Isaac the
+  simulator owns TF. Its Isaac profile was replayed against the 2026-09-27 bag
+  (251 finite filtered messages), but the bag lacks a recorded command and IMU.
+  Isaac odometry covariance is all zero, so filtered covariance is not credible.
+  The Jetson still needs `ros-humble-robot-localization` installed with sudo;
+  the dependency is now in `scripts/setup/install_jetson_dependencies.sh`.
 
 **Next:** the source-agnostic perception nodes are rebuilt. Validate the whole
 pipeline against Isaac camera/depth/LiDAR streams when Isaac is available, then

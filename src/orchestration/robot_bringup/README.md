@@ -23,3 +23,14 @@ will start `base_driver` once that package exists. `backend:=isaac` launches no
 adapter: configure Isaac's ROS 2 graph to publish and consume the canonical AMR
 topics directly. `backend:=rosbag` is reserved for a replay launch, which will
 be added after the bag manifest and simulation-time policy are defined.
+
+When `localization` is enabled, bringup includes
+`localization_odometry_fusion`, which starts the upstream `robot_localization`
+EKF. Install `ros-humble-robot-localization` first (the Jetson dependency setup
+script includes it); otherwise bringup reports localization as pending. The
+Isaac profile consumes `/odom/wheel`, publishes `/odometry/filtered`, uses
+simulation time, and leaves `odom -> base_link` TF ownership with Isaac. The
+hardware profile consumes wheel odometry and `/imu/data`, publishes the same
+filtered topic, and owns that TF. Hardware drivers must not broadcast a second
+`odom -> base_link`. A rosbag playback uses the Isaac profile, but bringup does
+not yet start the bag player.

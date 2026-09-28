@@ -7,9 +7,11 @@
 3. High-performance perception: `perception_detector`.
 4. Robotics interpretation: `perception_detection_depth_projection`,
    `perception_lidar_clustering`, `perception_tracking`, and `perception_fusion`.
-5. Safety and operations: `nav2_collision_monitor`, `estop_gate`, navigation,
+5. Localization: `localization_odometry_fusion` configures the upstream
+   `robot_localization` EKF.
+6. Safety and operations: `nav2_collision_monitor`, `estop_gate`, navigation,
    and diagnostics.
-6. Measurement: `benchmarks`, `evaluation_tools`.
+7. Measurement: `benchmarks`, `evaluation_tools`.
 
 The debug mode is intentionally 2D-first. It proves image capture, CUDA preprocessing, detector wiring, and health reporting with the robot hardware path. The profile and production modes expand the launched subsystem set through `system_modes.yaml`.
 
@@ -23,6 +25,9 @@ RGB/depth camera
 2D LiDAR -> /scan -> perception_lidar_clustering -> lidar tracker+
 
 /scan -> nav2_collision_monitor -> estop_gate -> base driver or simulator
+
+/odom/wheel (+ /imu/data on hardware) -> robot_localization EKF
+                                    -> /odometry/filtered
 ```
 
 The detector node selects implementations through a backend factory without
@@ -34,8 +39,15 @@ The two tracking processes use the same `perception_tracking` executable with
 different topic and source parameters. Both track in `odom`, so robot motion is
 removed from obstacle velocity estimates, then publish in `base_link` for
 fusion and robot-local consumers. The required time-aligned TF chain is supplied
-by localization (wheel odometry plus IMU) and the sensor extrinsic transforms;
+by the odometry source and sensor extrinsic transforms;
 the tracker does not consume raw IMU messages directly.
+
+On hardware, the EKF combines wheel velocity with IMU yaw rate and owns
+`odom -> base_link`; the base driver must not broadcast that transform. In the
+current Isaac scene, there is no IMU, so the EKF uses Isaac wheel odometry
+alone and Isaac owns the transform. These are local odometry profiles, not
+SLAM or global localization. The zero covariance in the current Isaac odometry
+is not a calibrated uncertainty estimate.
 
 `perception_fusion` approximately synchronizes the two track streams within a
 strict time bound, associates tracks one-to-one in `base_link`, and combines

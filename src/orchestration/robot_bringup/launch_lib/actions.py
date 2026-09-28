@@ -1,10 +1,11 @@
 from pathlib import Path
 
-from launch.actions import LogInfo
+from launch.actions import IncludeLaunchDescription, LogInfo
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 
 from launch_lib.config import ResolvedConfig
-from launch_lib.paths import package_available, project_config, read_yaml
+from launch_lib.paths import package_available, package_file, project_config, read_yaml
 from launch_lib.tiers import TIERS
 
 #: toggle name -> LIST of node specs, for components that have been rebuilt.
@@ -73,6 +74,13 @@ NODE_SPECS: dict = {
             "parameters": [str(project_config("perception", "fusion.yaml"))],
         },
     ],
+    "localization": [
+        {
+            "package": "localization_odometry_fusion",
+            "launch_file": "odometry_fusion.launch.py",
+            "required_packages": ["robot_localization"],
+        },
+    ],
     # Obstacle-zone half of the safety chain. Upstream package, so it is
     # available as soon as ros-humble-nav2-collision-monitor is installed —
     # unlike our own packages it does not wait on the rebuild.
@@ -119,7 +127,13 @@ MOTION_BACKEND_SPECS: dict = {
 }
 
 
-def _node_action(spec: dict, log_level: str, use_sim_time: bool) -> Node:
+def _node_action(spec: dict, log_level: str, use_sim_time: bool, backend: str):
+    if "launch_file" in spec:
+        launch_file = package_file(spec["package"], "launch", spec["launch_file"])
+        return IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(str(launch_file)),
+            launch_arguments={"backend": backend, "log_level": log_level}.items(),
+        )
     return Node(
         package=spec["package"],
         executable=spec["executable"],
@@ -182,7 +196,12 @@ def build_actions(resolved: ResolvedConfig) -> list:
         # A component may need more than one process — collision_monitor is a
         # lifecycle node and is inert without its lifecycle manager, so the two
         # are launched together or not at all.
-        missing = [s["package"] for s in specs if not package_available(s["package"])]
+        required_packages = [
+            package
+            for spec in specs
+            for package in [spec["package"], *spec.get("required_packages", [])]
+        ]
+        missing = [package for package in required_packages if not package_available(package)]
         if missing:
             pending.append(f"{name} (packages not built: {', '.join(sorted(set(missing)))})")
             continue
@@ -196,7 +215,10 @@ def build_actions(resolved: ResolvedConfig) -> list:
             pending.append(f"{name} (runtime files missing: {', '.join(missing_files)})")
             continue
 
-        actions.extend(_node_action(spec, resolved.log_level, resolved.backend == "isaac") for spec in specs)
+        actions.extend(
+            _node_action(spec, resolved.log_level, resolved.backend == "isaac", resolved.backend)
+            for spec in specs
+        )
         launched.append(name)
 
     if resolved.enabled["drivers"]:
@@ -204,22 +226,26 @@ def build_actions(resolved: ResolvedConfig) -> list:
             actions.append(
                 LogInfo(
                     msg=(
-                        "robot_bringup: backend=isaac launches no adapter. Configure Isaac's ROS 2 "
-                        "graph to use the canonical AMR topics directly."
+                        "robot_bringup: backend=isaac launches no adapter. "
+                        "Configure Isaac's ROS 2 graph to use the canonical "
+                        "AMR topics directly."
                     )
                 )
             )
             launched.append("backend:isaac")
         elif resolved.backend == "rosbag":
             pending.append(
-                "drivers (rosbag backend selected; replay launch waits for a bag manifest and /clock policy)"
+                "drivers (rosbag backend selected; replay launch waits for a bag manifest "
+                "and /clock policy)"
             )
         else:
             spec = MOTION_BACKEND_SPECS["hardware"]
             if not package_available(spec["package"]):
-                pending.append(f"drivers ({resolved.backend} package not built: {spec['package']})")
+                pending.append(
+                    f"drivers ({resolved.backend} package not built: {spec['package']})"
+                )
             else:
-                actions.append(_node_action(spec, resolved.log_level, False))
+                actions.append(_node_action(spec, resolved.log_level, False, resolved.backend))
                 launched.append(f"drivers:{resolved.backend}")
 
     if pending:
