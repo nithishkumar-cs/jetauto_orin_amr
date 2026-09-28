@@ -9,6 +9,7 @@ from launch_lib.tiers import LOCKED_MODES, REQUIRED, TIERS, TOGGLE_NAMES, tier_o
 
 VALID_MODES = ("debug", "profile", "production")
 VALID_BACKENDS = ("hardware", "isaac", "rosbag")
+VALID_SLAM_MODES = ("off", "mapping")
 
 
 @dataclass
@@ -16,6 +17,7 @@ class ResolvedConfig:
     args: dict
     instrumentation_mode: str
     backend: str
+    slam_mode: str
     log_level: str
     runtime_behaviour: dict
     #: toggle name -> enabled. Every name in TOGGLE_NAMES is present.
@@ -51,7 +53,9 @@ def resolve_mode(args: dict, system_modes: dict, runtime_modes: dict) -> str:
     if mode == "auto":
         mode = system_modes.get("default_mode", "debug")
     if mode not in VALID_MODES:
-        raise RuntimeError(f"Unknown instrumentation_mode '{mode}'. Expected one of {VALID_MODES}.")
+        raise RuntimeError(
+            f"Unknown instrumentation_mode '{mode}'. Expected one of {VALID_MODES}."
+        )
     if mode not in runtime_modes["instrumentation_modes"]:
         raise RuntimeError(f"runtime_modes.yaml is missing instrumentation mode '{mode}'.")
     return mode
@@ -62,6 +66,13 @@ def resolve_backend(args: dict) -> str:
     if backend not in VALID_BACKENDS:
         raise RuntimeError(f"Unknown backend '{backend}'. Expected one of {VALID_BACKENDS}.")
     return backend
+
+
+def resolve_slam_mode(args: dict) -> str:
+    slam_mode = args["slam_mode"]
+    if slam_mode not in VALID_SLAM_MODES:
+        raise RuntimeError(f"Unknown slam_mode '{slam_mode}'. Expected one of {VALID_SLAM_MODES}.")
+    return slam_mode
 
 
 def check_toggle_coverage(yaml_toggles: dict) -> None:
@@ -79,7 +90,9 @@ def check_toggle_coverage(yaml_toggles: dict) -> None:
         )
     missing = sorted(set(TIERS) - set(yaml_toggles))
     if missing:
-        raise RuntimeError(f"system_modes.yaml is missing toggles declared in tiers.py: {missing}.")
+        raise RuntimeError(
+            f"system_modes.yaml is missing toggles declared in tiers.py: {missing}."
+        )
 
 
 def resolve_toggles(args: dict, mode: str, yaml_toggles: dict) -> dict:
@@ -141,15 +154,19 @@ def resolve_config(context) -> ResolvedConfig:
 
     mode = resolve_mode(args, system_modes, runtime_modes)
     backend = resolve_backend(args)
+    slam_mode = resolve_slam_mode(args)
     runtime_behaviour = runtime_modes["instrumentation_modes"][mode] or {}
 
     enabled = resolve_toggles(args, mode, system_modes["toggles"])
     check_constraints(enabled, mode)
+    if slam_mode == "mapping" and backend == "hardware" and not enabled["localization"]:
+        raise RuntimeError("Hardware SLAM mapping requires localization to provide odom TF.")
 
     return ResolvedConfig(
         args=args,
         instrumentation_mode=mode,
         backend=backend,
+        slam_mode=slam_mode,
         log_level=runtime_behaviour.get("log_level", "info"),
         runtime_behaviour=runtime_behaviour,
         enabled=enabled,

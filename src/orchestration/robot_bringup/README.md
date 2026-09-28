@@ -34,3 +34,17 @@ hardware profile consumes wheel odometry and `/imu/data`, publishes the same
 filtered topic, and owns that TF. Hardware drivers must not broadcast a second
 `odom -> base_link`. A rosbag playback uses the Isaac profile, but bringup does
 not yet start the bag player.
+
+Online 2D mapping is a separate, opt-in launch axis:
+
+```bash
+ros2 launch robot_bringup robot_stack.launch.py backend:=isaac slam_mode:=mapping
+```
+
+`slam_mode:=off` is the default even in production. Mapping starts
+`localization_slam_mapping` (upstream SLAM Toolbox) alongside any enabled
+odometry component. It consumes `/scan` plus TF from `odom` through
+`base_link` to the scan frame, publishes `/map`, and owns `map -> odom`.
+It does not command motion. On hardware, keep `enable_localization:=true` so
+the EKF supplies `odom -> base_link`; Isaac and rosbag require that TF from
+their source instead. Map saving is documented in the mapping package README.

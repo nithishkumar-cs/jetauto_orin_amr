@@ -126,6 +126,12 @@ MOTION_BACKEND_SPECS: dict = {
     },
 }
 
+SLAM_MAPPING_SPEC = {
+    "package": "localization_slam_mapping",
+    "launch_file": "slam_mapping.launch.py",
+    "required_packages": ["slam_toolbox"],
+}
+
 
 def _node_action(spec: dict, log_level: str, use_sim_time: bool, backend: str):
     if "launch_file" in spec:
@@ -247,6 +253,22 @@ def build_actions(resolved: ResolvedConfig) -> list:
             else:
                 actions.append(_node_action(spec, resolved.log_level, False, resolved.backend))
                 launched.append(f"drivers:{resolved.backend}")
+
+    if resolved.slam_mode == "mapping":
+        required = [SLAM_MAPPING_SPEC["package"], *SLAM_MAPPING_SPEC["required_packages"]]
+        if resolved.backend == "hardware":
+            required.extend(("localization_odometry_fusion", "robot_localization"))
+        missing = [package for package in required if not package_available(package)]
+        if missing:
+            pending.append(f"mapping (packages not built: {', '.join(missing)})")
+        else:
+            actions.append(
+                _node_action(
+                    SLAM_MAPPING_SPEC, resolved.log_level,
+                    resolved.backend != "hardware", resolved.backend,
+                )
+            )
+            launched.append("mapping")
 
     if pending:
         actions.append(

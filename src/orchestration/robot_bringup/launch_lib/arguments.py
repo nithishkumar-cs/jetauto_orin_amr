@@ -11,6 +11,7 @@ TOGGLE_ARGUMENT_NAMES = tuple(f"enable_{name}" for name in TOGGLE_NAMES)
 ARGUMENT_NAMES = (
     "instrumentation_mode",
     "backend",
+    "slam_mode",
     "system_modes_config",
     "runtime_modes_config",
 ) + TOGGLE_ARGUMENT_NAMES
@@ -27,12 +28,21 @@ def declared_arguments() -> list:
         DeclareLaunchArgument(
             "instrumentation_mode",
             default_value="auto",
-            description="debug | profile | production. 'auto' uses system_modes.yaml default_mode.",
+            description=(
+                "debug | profile | production. 'auto' uses system_modes.yaml default_mode."
+            ),
         ),
         DeclareLaunchArgument(
             "backend",
             default_value="hardware",
-            description="hardware | isaac | rosbag. Selects the one source at the edge of the stack.",
+            description=(
+                "hardware | isaac | rosbag. Selects the one source at the edge of the stack."
+            ),
+        ),
+        DeclareLaunchArgument(
+            "slam_mode",
+            default_value="off",
+            description="off | mapping. Online mapping is opt-in for every runtime mode.",
         ),
         DeclareLaunchArgument(
             "system_modes_config",

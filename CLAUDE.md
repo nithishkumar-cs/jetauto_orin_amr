@@ -178,12 +178,19 @@ Use ROS Humble: `source /opt/ros/humble/setup.bash`.
   Isaac odometry covariance is all zero, so filtered covariance is not credible.
   The Jetson still needs `ros-humble-robot-localization` installed with sudo;
   the dependency is now in `scripts/setup/install_jetson_dependencies.sh`.
+- `localization_slam_mapping` added. Bringup starts it only with
+  `slam_mode:=mapping` (default `off`, including production). It runs upstream
+  SLAM Toolbox against `/scan` and `odom -> base_link -> lidar_link`, publishes
+  `/map`, and owns `map -> odom`. A replay of the 2026-09-27 Isaac bag produced
+  occupancy maps and `map -> odom` TF; both map image and pose-graph export
+  services returned success. This proves plumbing, not map accuracy or loop
+  closure; a longer Isaac route and saved-map localization remain untested.
 
-**Next:** the source-agnostic perception nodes are rebuilt. Validate the whole
-pipeline against Isaac camera/depth/LiDAR streams when Isaac is available, then
-tune detector projection, clustering, tracking, fusion timing/association, and
-covariance parameters from recorded scenes. The hardware `base_driver` remains
-to be rebuilt under `src/drivers/`.
+**Next:** drive a longer, closed-loop route in Isaac, inspect and save a usable
+map, then validate localization against that saved map before enabling Nav2
+planning/control. The current bag proves the mapping plumbing only. Record
+`/cmd_vel/safety_limited` in that run to verify the command-to-motion path.
+The hardware `base_driver` remains to be rebuilt under `src/drivers/`.
 
 **Unvalidated:** the zone sizes in `collision_monitor.yaml` (stop 0.55 m, slow
 1.25 m, 35% throttle) were carried over from the old radial design and have

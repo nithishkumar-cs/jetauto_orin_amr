@@ -15,11 +15,14 @@
        launch_lib/actions.py NODE_SPECS for the matching launch entry. -->
   <exec_depend>nav2_collision_monitor</exec_depend>
   <exec_depend>localization_odometry_fusion</exec_depend>
+  <exec_depend>localization_slam_mapping</exec_depend>
   <exec_depend>perception_detector</exec_depend>
   <exec_depend>perception_detection_depth_projection</exec_depend>
   <exec_depend>perception_fusion</exec_depend>
   <exec_depend>perception_lidar_clustering</exec_depend>
   <exec_depend>perception_tracking</exec_depend>
+
+  <test_depend>ament_cmake_pytest</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

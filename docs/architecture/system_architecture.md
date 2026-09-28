@@ -8,7 +8,8 @@
 4. Robotics interpretation: `perception_detection_depth_projection`,
    `perception_lidar_clustering`, `perception_tracking`, and `perception_fusion`.
 5. Localization: `localization_odometry_fusion` configures the upstream
-   `robot_localization` EKF.
+   `robot_localization` EKF; optional `localization_slam_mapping` configures
+   upstream SLAM Toolbox for online 2D mapping.
 6. Safety and operations: `nav2_collision_monitor`, `estop_gate`, navigation,
    and diagnostics.
 7. Measurement: `benchmarks`, `evaluation_tools`.
@@ -28,6 +29,9 @@ RGB/depth camera
 
 /odom/wheel (+ /imu/data on hardware) -> robot_localization EKF
                                     -> /odometry/filtered
+
+/scan + odom -> base_link -> lidar_link TF -> SLAM Toolbox
+                                         -> /map + map -> odom TF
 ```
 
 The detector node selects implementations through a backend factory without
@@ -48,6 +52,12 @@ current Isaac scene, there is no IMU, so the EKF uses Isaac wheel odometry
 alone and Isaac owns the transform. These are local odometry profiles, not
 SLAM or global localization. The zero covariance in the current Isaac odometry
 is not a calibrated uncertainty estimate.
+
+Online mapping is selected explicitly with `slam_mode:=mapping` in bringup.
+SLAM Toolbox owns `map -> odom`; the EKF or Isaac owns `odom -> base_link`,
+and the static sensor transform connects `base_link` to the LiDAR. No second
+publisher should claim either moving TF edge. Mapping is not navigation and
+does not send velocity commands.
 
 `perception_fusion` approximately synchronizes the two track streams within a
 strict time bound, associates tracks one-to-one in `base_link`, and combines

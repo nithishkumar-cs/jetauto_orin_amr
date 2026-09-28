@@ -26,4 +26,9 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../../configs/
   DESTINATION share/${PROJECT_NAME}/project_configs
 )
 
+if(BUILD_TESTING)
+  find_package(ament_cmake_pytest REQUIRED)
+  ament_add_pytest_test(test_slam_mode test/test_slam_mode.py)
+endif()
+
 ament_package()
