@@ -161,18 +161,22 @@ FusedObstacle MultiSensorFusion::copy_single(
 std::size_t MultiSensorFusion::resolve_identity(
   const Candidate & candidate, double timestamp_s, const std::vector<bool> & identity_used)
 {
-  std::vector<std::size_t> exact_matches;
+  std::vector<std::size_t> camera_matches;
+  std::vector<std::size_t> lidar_matches;
   for (std::size_t index = 0U; index < identities_.size(); ++index) {
     if (identity_used[index]) {
       continue;
     }
     const auto & identity = identities_[index];
-    const auto camera_matches = candidate.camera_track_id && identity.camera_track_id &&
+    const auto same_camera_id = candidate.camera_track_id && identity.camera_track_id &&
                                 *candidate.camera_track_id == *identity.camera_track_id;
-    const auto lidar_matches = candidate.lidar_track_id && identity.lidar_track_id &&
+    const auto same_lidar_id = candidate.lidar_track_id && identity.lidar_track_id &&
                                *candidate.lidar_track_id == *identity.lidar_track_id;
-    if (camera_matches || lidar_matches) {
-      exact_matches.push_back(index);
+    if (same_camera_id) {
+      camera_matches.push_back(index);
+    }
+    if (same_lidar_id) {
+      lidar_matches.push_back(index);
     }
   }
 
@@ -190,6 +194,7 @@ std::size_t MultiSensorFusion::resolve_identity(
   };
 
   std::size_t selected_index = identities_.size();
+  const auto & exact_matches = camera_matches.empty() ? lidar_matches : camera_matches;
   if (!exact_matches.empty()) {
     selected_index = *std::min_element(
       exact_matches.begin(), exact_matches.end(),

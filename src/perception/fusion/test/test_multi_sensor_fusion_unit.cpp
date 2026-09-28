@@ -130,6 +130,27 @@ TEST(MultiSensorFusionUnit, PreservesFusedIdAsSourcesAppearAndDisappear)
   EXPECT_EQ(camera_only.front().track_id, fused_id);
 }
 
+TEST(MultiSensorFusionUnit, PrefersStableCameraIdentityWhenLidarAssociationChanges)
+{
+  MultiSensorFusion fusion;
+  const auto camera = track(7U, 0.0, 0.0);
+  const auto lidar_a = track(100U, 0.0, 0.0, 0.04, "");
+  const auto lidar_b = track(200U, 0.5, 0.0, 0.04, "");
+  const auto initial = fusion.fuse(1.0, {camera}, {lidar_a});
+  ASSERT_EQ(initial.size(), 1U);
+  const auto original_id = initial.front().track_id;
+
+  ASSERT_EQ(fusion.fuse(1.1, {}, {lidar_a, lidar_b}).size(), 2U);
+  const auto updated =
+    fusion.fuse(1.2, {track(7U, 0.45, 0.0)}, {lidar_a, track(200U, 0.45, 0.0, 0.04, "")});
+  const auto person = std::find_if(updated.begin(), updated.end(), [](const auto & obstacle) {
+    return obstacle.class_id == "person";
+  });
+  ASSERT_NE(person, updated.end());
+  EXPECT_EQ(person->source, "camera+lidar");
+  EXPECT_EQ(person->track_id, original_id);
+}
+
 TEST(MultiSensorFusionUnit, ExpiresIdentityBeforeReassociatingAReappearingTrack)
 {
   auto config = FusionConfig{};

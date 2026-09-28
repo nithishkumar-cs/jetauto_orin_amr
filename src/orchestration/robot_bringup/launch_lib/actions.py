@@ -119,13 +119,13 @@ MOTION_BACKEND_SPECS: dict = {
 }
 
 
-def _node_action(spec: dict, log_level: str) -> Node:
+def _node_action(spec: dict, log_level: str, use_sim_time: bool) -> Node:
     return Node(
         package=spec["package"],
         executable=spec["executable"],
         name=spec.get("name", spec["executable"]),
         output="screen",
-        parameters=spec.get("parameters", []),
+        parameters=[*spec.get("parameters", []), {"use_sim_time": use_sim_time}],
         remappings=spec.get("remappings", []),
         arguments=["--ros-args", "--log-level", log_level],
     )
@@ -196,7 +196,7 @@ def build_actions(resolved: ResolvedConfig) -> list:
             pending.append(f"{name} (runtime files missing: {', '.join(missing_files)})")
             continue
 
-        actions.extend(_node_action(spec, resolved.log_level) for spec in specs)
+        actions.extend(_node_action(spec, resolved.log_level, resolved.backend == "isaac") for spec in specs)
         launched.append(name)
 
     if resolved.enabled["drivers"]:
@@ -219,7 +219,7 @@ def build_actions(resolved: ResolvedConfig) -> list:
             if not package_available(spec["package"]):
                 pending.append(f"drivers ({resolved.backend} package not built: {spec['package']})")
             else:
-                actions.append(_node_action(spec, resolved.log_level))
+                actions.append(_node_action(spec, resolved.log_level, False))
                 launched.append(f"drivers:{resolved.backend}")
 
     if pending:
