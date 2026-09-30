@@ -29,6 +29,10 @@ The saved mapping bag's final `map -> odom` transform was used as a fixed alignm
 
 These numbers validate saved-map loading, scan matching, TF publication, and pose continuity along this repeat route. The simulator odometry is exact kinematic ground truth, the same room and route were used for mapping and localization, and no wheel drift or IMU noise was injected. A distinct route, localization under odometry error, and an explicit pose-graph loop-closure check remain necessary before treating this as navigation-grade localization. Ethernet performance also remains untested because the laptop cable was disconnected.
 
+A subsequent [controlled-odometry-drift replay](isaac_odometry_drift_2026-09-30.md)
+checks saved-map localization when the incoming `odom -> base_link` TF is
+biased; distinct-route and explicit loop-closure validation remain open.
+
 ## Reproduce
 
 Start mapping on the Jetson with `ros2 launch localization_slam_mapping slam_mapping.launch.py backend:=isaac`. Start Isaac headless using `scripts/windows/run_isaac.ps1 -DomainId 42 -MappingLoop -MappingLaps 2`, or launch the PowerShell process with `-WindowStyle Hidden` as in `docs/installation.md` in the companion project. Record `/clock /scan /tf /tf_static /odom/wheel /map /map_metadata`; when `MAPPING_LOOP_COMPLETED` appears in the Isaac log, stop recording and run `scripts/linux/save_slam_map.sh /writable/map/prefix` on the Jetson with its ROS environment sourced.

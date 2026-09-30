@@ -183,14 +183,19 @@ Use ROS Humble: `source /opt/ros/humble/setup.bash`.
   SLAM Toolbox against `/scan` and `odom -> base_link -> lidar_link`, publishes
   `/map`, and owns `map -> odom`. A replay of the 2026-09-27 Isaac bag produced
   occupancy maps and `map -> odom` TF; both map image and pose-graph export
-  services returned success. This proves plumbing, not map accuracy or loop
-  closure; a longer Isaac route and saved-map localization remain untested.
+  services returned success. A later two-lap Isaac run saved a map and
+  validated repeat-route localization, but an accepted pose-graph loop
+  closure remains unverified.
 
-**Next:** drive a longer, closed-loop route in Isaac, inspect and save a usable
-map, then validate localization against that saved map before enabling Nav2
-planning/control. The current bag proves the mapping plumbing only. Record
-`/cmd_vel/safety_limited` in that run to verify the command-to-motion path.
-The hardware `base_driver` remains to be rebuilt under `src/drivers/`.
+**Next:** the longer two-lap Isaac map and repeat-route saved-map localization
+are recorded in `docs/validation/isaac_mapping_localization_2026-09-28.md`.
+A Jetson-only replay with gradual odometry TF drift is in
+`docs/validation/isaac_odometry_drift_2026-09-30.md`; it maintained roughly
+the same pose error despite up to 0.67 m raw input drift. Still test a
+distinct Isaac route and explicitly verify an accepted loop closure before
+Nav2 control. Record `/cmd_vel/safety_limited` in a future live run to verify
+the command-to-motion path. The hardware `base_driver` remains to be rebuilt
+under `src/drivers/`.
 
 **Unvalidated:** the zone sizes in `collision_monitor.yaml` (stop 0.55 m, slow
 1.25 m, 35% throttle) were carried over from the old radial design and have

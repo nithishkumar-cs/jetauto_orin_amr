@@ -29,3 +29,19 @@ timestamp gaps, checks exact RGB/depth and perception-stage stamp coverage,
 prints image formats, and summarizes semantic track IDs. This makes a slow
 simulator distinguishable from missing source frames and exposes identity
 restarts without relying on visual inspection.
+
+## Saved-map localization stress check
+
+`inject_odometry_tf_drift.py` makes a **new** replay bag from an Isaac
+localization bag. It gradually biases only `odom -> base_link` TF, removes
+previously generated `map -> odom` TF and `/pose`, and preserves the original
+odometry as `/validation/reference_odom`. It never overwrites its output path.
+Play this derived bag through a fresh saved-map SLAM Toolbox localization node
+with `use_sim_time:=true`, recording the new `/pose` output separately.
+
+`analyze_saved_map_localization.py` compares those poses to the untouched
+Isaac odometry using the mapping run's **fixed** final `map -> odom` alignment.
+Pass the original localization bag as the reference and the derived bag with
+`--perturbed-bag` to report both localization error and raw input drift.
+See the [drift validation report](../docs/validation/isaac_odometry_drift_2026-09-30.md)
+for the tested amplitudes, commands, results, and limits.
