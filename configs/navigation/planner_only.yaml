@@ -1,0 +1,49 @@
+# Isaac/rosbag planner-only validation profile. No controller is launched.
+# The 0.33 m radius conservatively encloses the simulated 0.48 x 0.42 m
+# chassis; measure the actual robot footprint before any hardware navigation.
+planner_server:
+  ros__parameters:
+    expected_planner_frequency: 1.0
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "nav2_navfn_planner/NavfnPlanner"
+      tolerance: 0.0
+      use_astar: true
+      allow_unknown: false
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      use_sim_time: true
+      global_frame: map
+      robot_base_frame: base_link
+      transform_tolerance: 0.2
+      update_frequency: 2.0
+      publish_frequency: 1.0
+      resolution: 0.05
+      track_unknown_space: true
+      robot_radius: 0.33
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: true
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        observation_sources: scan
+        scan:
+          topic: /scan
+          data_type: "LaserScan"
+          marking: true
+          clearing: true
+          obstacle_max_range: 4.0
+          raytrace_max_range: 4.0
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        inflation_radius: 0.40
+        cost_scaling_factor: 3.0
+      always_send_full_costmap: true
+
+lifecycle_manager_planner:
+  ros__parameters:
+    autostart: true
+    node_names: ["planner_server"]

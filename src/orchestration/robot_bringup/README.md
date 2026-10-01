@@ -12,6 +12,8 @@ Primary launch axes:
 
 - `instrumentation_mode`: `debug`, `profile`, or `production`
 - `backend`: `hardware`, `isaac`, or `rosbag`; selects exactly one source edge
+- `slam_mode`: `off`, `mapping`, or `localization`
+- `navigation_mode`: `off` or `planner_only` (default `off`)
 - component toggles: `enable_drivers`, `enable_preproc`, `enable_detector`,
   `enable_geometry`, `enable_tracking`, `enable_fusion`, and the remaining
   entries in `configs/runtime_modes/system_modes.yaml`
@@ -72,3 +74,25 @@ needs an initial map-frame estimate, and its `map_start_at_dock` option is not
 supported. The example pose is specific to the saved Isaac map, not a safe
 hardware default. Relocalization through `/initialpose` is available after
 startup. Never enable navigation control on an unverified initial pose.
+On this Jetson, source the patched SLAM Toolbox 2.6.10 overlay before using
+localization; otherwise its translation-only scan filter silently skips
+in-place turns. Build and replay evidence are in
+`docs/validation/isaac_heading_fix_2026-10-01.md`.
+
+Planner-only navigation is an opt-in Isaac/rosbag validation mode. It requires
+saved-map localization, `enable_navigation:=true`, and both drivers and teleop
+disabled. It starts Nav2 `planner_server` and its lifecycle manager, but **not**
+the controller, behavior-tree navigator, or a motor driver. Its global costmap
+combines SLAM Toolbox's `/map` with live `/scan`; `/compute_path_to_pose` returns
+paths without publishing `/cmd_vel`. The 0.33 m robot radius in
+`configs/navigation/planner_only.yaml` is a provisional Isaac footprint, not a
+measured hardware safety clearance.
+
+For a recorded run, use the localization command above with
+`navigation_mode:=planner_only enable_navigation:=true` instead of
+`enable_navigation:=false`; keep the other motion-related toggles off. Then
+replay the source bag in a separate terminal. If the bag contains `/clock`, do
+**not** pass `--clock` to `ros2 bag play`: that would publish a second clock.
+The recorded `/tf` must exclude `map -> odom`, leaving that transform to the
+live localizer. See `docs/validation/isaac_planner_only_2026-10-01.md` for the
+tested commands and path-only results.

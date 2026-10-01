@@ -139,6 +139,22 @@ SLAM_LOCALIZATION_SPEC = {
     "parameters": [str(project_config("localization", "slam_localization.yaml"))],
 }
 
+PLANNER_ONLY_SPECS = [
+    {
+        "package": "nav2_planner",
+        "executable": "planner_server",
+        "name": "planner_server",
+        "parameters": [str(project_config("navigation", "planner_only.yaml"))],
+        "required_packages": ["nav2_navfn_planner", "nav2_costmap_2d"],
+    },
+    {
+        "package": "nav2_lifecycle_manager",
+        "executable": "lifecycle_manager",
+        "name": "lifecycle_manager_planner",
+        "parameters": [str(project_config("navigation", "planner_only.yaml"))],
+    },
+]
+
 
 def _node_action(
     spec: dict,
@@ -197,6 +213,8 @@ def build_actions(resolved: ResolvedConfig) -> list:
             msg=(
                 f"robot_bringup mode={resolved.instrumentation_mode} "
                 f"backend={resolved.backend} "
+                f"slam_mode={resolved.slam_mode} "
+                f"navigation_mode={resolved.navigation_mode} "
                 f"log_level={resolved.log_level} "
                 f"enabled=[{', '.join(sorted(on))}] "
                 f"disabled=[{', '.join(off)}]"
@@ -208,7 +226,7 @@ def build_actions(resolved: ResolvedConfig) -> list:
     for name in sorted(on):
         # This required component is selected by the backend, below, rather
         # than by a generic node entry.
-        if name == "drivers":
+        if name in ("drivers", "navigation"):
             continue
         specs = NODE_SPECS.get(name)
         if not specs:
@@ -292,6 +310,24 @@ def build_actions(resolved: ResolvedConfig) -> list:
                 )
             )
             launched.append(resolved.slam_mode)
+
+    if resolved.navigation_mode == "planner_only":
+        required = [
+            package
+            for spec in PLANNER_ONLY_SPECS
+            for package in [spec["package"], *spec.get("required_packages", [])]
+        ]
+        missing = sorted({package for package in required if not package_available(package)})
+        if "localization" not in launched:
+            pending.append("planner_only (localization map source unavailable)")
+        elif missing:
+            pending.append(f"planner_only (packages not built: {', '.join(missing)})")
+        else:
+            actions.extend(
+                _node_action(spec, resolved.log_level, True, resolved.backend)
+                for spec in PLANNER_ONLY_SPECS
+            )
+            launched.append("planner_only")
 
     if pending:
         actions.append(

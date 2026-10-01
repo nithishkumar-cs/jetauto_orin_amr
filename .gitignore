@@ -1,6 +1,7 @@
 build/
 install/
 log/
+/src/localization/slam_toolbox_vendor/
 .colcon/
 .cache/
 .git.previous*/

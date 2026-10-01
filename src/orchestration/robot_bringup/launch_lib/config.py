@@ -12,6 +12,7 @@ from launch_lib.tiers import LOCKED_MODES, REQUIRED, TIERS, TOGGLE_NAMES, tier_o
 VALID_MODES = ("debug", "profile", "production")
 VALID_BACKENDS = ("hardware", "isaac", "rosbag")
 VALID_SLAM_MODES = ("off", "mapping", "localization")
+VALID_NAVIGATION_MODES = ("off", "planner_only")
 
 
 @dataclass
@@ -20,6 +21,7 @@ class ResolvedConfig:
     instrumentation_mode: str
     backend: str
     slam_mode: str
+    navigation_mode: str
     pose_graph_prefix: str
     map_start_pose: tuple[float, float, float] | None
     log_level: str
@@ -75,6 +77,16 @@ def resolve_slam_mode(args: dict) -> str:
     if slam_mode not in VALID_SLAM_MODES:
         raise RuntimeError(f"Unknown slam_mode '{slam_mode}'. Expected one of {VALID_SLAM_MODES}.")
     return slam_mode
+
+
+def resolve_navigation_mode(args: dict) -> str:
+    navigation_mode = args["navigation_mode"]
+    if navigation_mode not in VALID_NAVIGATION_MODES:
+        raise RuntimeError(
+            f"Unknown navigation_mode '{navigation_mode}'. Expected one of "
+            f"{VALID_NAVIGATION_MODES}."
+        )
+    return navigation_mode
 
 
 def resolve_pose_graph_prefix(args: dict, slam_mode: str) -> str:
@@ -178,6 +190,21 @@ def check_constraints(enabled: dict, mode: str) -> None:
         )
 
 
+def check_navigation_constraints(
+    navigation_mode: str, backend: str, slam_mode: str, enabled: dict
+) -> None:
+    if navigation_mode != "planner_only":
+        return
+    if backend == "hardware":
+        raise RuntimeError("planner_only is validated only for isaac or rosbag backends.")
+    if slam_mode != "localization":
+        raise RuntimeError("planner_only requires slam_mode=localization as its map source.")
+    if not enabled["navigation"]:
+        raise RuntimeError("planner_only requires enable_navigation=true.")
+    if enabled["drivers"] or enabled["teleop"]:
+        raise RuntimeError("planner_only requires drivers and teleop disabled.")
+
+
 def resolve_config(context) -> ResolvedConfig:
     args = launch_args_from_context(context)
     validate_required_files(args)
@@ -195,6 +222,7 @@ def resolve_config(context) -> ResolvedConfig:
     mode = resolve_mode(args, system_modes, runtime_modes)
     backend = resolve_backend(args)
     slam_mode = resolve_slam_mode(args)
+    navigation_mode = resolve_navigation_mode(args)
     pose_graph_prefix = resolve_pose_graph_prefix(args, slam_mode)
     map_start_pose = resolve_map_start_pose(args, slam_mode)
     runtime_behaviour = runtime_modes["instrumentation_modes"][mode] or {}
@@ -203,12 +231,14 @@ def resolve_config(context) -> ResolvedConfig:
     check_constraints(enabled, mode)
     if slam_mode != "off" and backend == "hardware" and not enabled["localization"]:
         raise RuntimeError("Hardware SLAM requires localization to provide odom TF.")
+    check_navigation_constraints(navigation_mode, backend, slam_mode, enabled)
 
     return ResolvedConfig(
         args=args,
         instrumentation_mode=mode,
         backend=backend,
         slam_mode=slam_mode,
+        navigation_mode=navigation_mode,
         pose_graph_prefix=pose_graph_prefix,
         map_start_pose=map_start_pose,
         log_level=runtime_behaviour.get("log_level", "info"),

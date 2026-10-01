@@ -19,6 +19,19 @@ source /opt/ros/humble/setup.bash
 source install/setup.bash
 ```
 
+The apt SLAM Toolbox 2.6.10 filters out in-place turns before scan matching.
+For saved-map localization, build the pinned heading-aware overlay as well:
+
+```bash
+bash scripts/setup/build_slam_toolbox_heading_fix.sh
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+ros2 pkg prefix slam_toolbox  # must print this repository's install path
+```
+
+This leaves `/opt/ros/humble` untouched. The patch and validation are recorded
+in `docs/validation/isaac_heading_fix_2026-10-01.md`.
+
 Run the debug bring-up:
 
 ```bash

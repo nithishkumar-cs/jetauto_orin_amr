@@ -1,0 +1,37 @@
+diff --git a/src/slam_toolbox_common.cpp b/src/slam_toolbox_common.cpp
+index 77ac6b1..61d7d7c 100644
+--- a/src/slam_toolbox_common.cpp
++++ b/src/slam_toolbox_common.cpp
+@@ -16,6 +16,7 @@
+  */
+ 
+ /* Author: Steven Macenski */
++#include <cmath>
+ #include <memory>
+ #include <vector>
+ #include <string>
+@@ -509,6 +510,9 @@ bool SlamToolbox::shouldProcessScan(
+   static double min_dist2 =
+     smapper_->getMapper()->getParamMinimumTravelDistance() *
+     smapper_->getMapper()->getParamMinimumTravelDistance();
++  // Mapper exposes this parameter in degrees, while Pose2 heading is radians.
++  static double min_heading = math::DegreesToRadians(
++    smapper_->getMapper()->getParamMinimumTravelHeading());
+   static int scan_ctr = 0;
+   scan_ctr++;
+ 
+@@ -535,9 +539,12 @@ bool SlamToolbox::shouldProcessScan(
+     return false;
+   }
+ 
+-  // check moved enough, within 10% for correction error
++  // Either translation or rotation can justify a fresh scan match. In-place
++  // turns must not be rejected just because the base's XY position is fixed.
+   const double dist2 = last_pose.SquaredDistance(pose);
+-  if (dist2 < 0.8 * min_dist2 || scan_ctr < 5) {
++  const double heading_delta = std::fabs(math::NormalizeAngle(
++    pose.GetHeading() - last_pose.GetHeading()));
++  if ((dist2 < 0.8 * min_dist2 && heading_delta < min_heading) || scan_ctr < 5) {
+     return false;
+   }
+ 

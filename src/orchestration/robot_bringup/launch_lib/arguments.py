@@ -12,6 +12,7 @@ ARGUMENT_NAMES = (
     "instrumentation_mode",
     "backend",
     "slam_mode",
+    "navigation_mode",
     "pose_graph_prefix",
     "map_start_pose",
     "system_modes_config",
@@ -45,6 +46,11 @@ def declared_arguments() -> list:
             "slam_mode",
             default_value="off",
             description="off | mapping | localization. SLAM is opt-in in every runtime mode.",
+        ),
+        DeclareLaunchArgument(
+            "navigation_mode",
+            default_value="off",
+            description="off | planner_only. Planner-only mode never starts motion control.",
         ),
         DeclareLaunchArgument(
             "pose_graph_prefix",

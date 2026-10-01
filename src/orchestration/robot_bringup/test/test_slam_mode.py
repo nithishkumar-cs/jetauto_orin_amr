@@ -17,6 +17,7 @@ def resolved(slam_mode, backend="isaac"):
         instrumentation_mode="debug",
         backend=backend,
         slam_mode=slam_mode,
+        navigation_mode="off",
         pose_graph_prefix="/tmp/test_map",
         map_start_pose=(-0.5, -1.0, 0.0),
         log_level="info",
