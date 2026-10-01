@@ -48,3 +48,27 @@ odometry component. It consumes `/scan` plus TF from `odom` through
 It does not command motion. On hardware, keep `enable_localization:=true` so
 the EKF supplies `odom -> base_link`; Isaac and rosbag require that TF from
 their source instead. Map saving is documented in the mapping package README.
+
+Saved-map localization is the other opt-in SLAM mode. Pass the **absolute
+prefix** of a SLAM Toolbox serialized map (both `.posegraph` and `.data`
+must exist); a `.pgm`/`.yaml` occupancy map alone is not enough:
+
+```bash
+ros2 launch robot_bringup robot_stack.launch.py \
+  backend:=rosbag slam_mode:=localization \
+  pose_graph_prefix:=/path/to/saved_map \
+  map_start_pose:='[-0.5, -1.0, 0.0]' \
+  enable_drivers:=false enable_navigation:=false
+```
+
+This starts upstream `localization_slam_toolbox_node` with
+`configs/localization/slam_localization.yaml`; it does **not** start a bag
+player or command motion. With `backend:=rosbag`, replay `/clock`, `/scan`,
+`/tf_static`, and the source's `odom -> base_link` TF in a separate process.
+The replay must exclude any previously recorded `map -> odom` TF, since the
+live localizer now owns it. A hardware run also requires the odometry-fusion
+component. `map_start_pose` is required because this Humble localization node
+needs an initial map-frame estimate, and its `map_start_at_dock` option is not
+supported. The example pose is specific to the saved Isaac map, not a safe
+hardware default. Relocalization through `/initialpose` is available after
+startup. Never enable navigation control on an unverified initial pose.

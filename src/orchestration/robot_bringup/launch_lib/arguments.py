@@ -12,6 +12,8 @@ ARGUMENT_NAMES = (
     "instrumentation_mode",
     "backend",
     "slam_mode",
+    "pose_graph_prefix",
+    "map_start_pose",
     "system_modes_config",
     "runtime_modes_config",
 ) + TOGGLE_ARGUMENT_NAMES
@@ -42,7 +44,23 @@ def declared_arguments() -> list:
         DeclareLaunchArgument(
             "slam_mode",
             default_value="off",
-            description="off | mapping. Online mapping is opt-in for every runtime mode.",
+            description="off | mapping | localization. SLAM is opt-in in every runtime mode.",
+        ),
+        DeclareLaunchArgument(
+            "pose_graph_prefix",
+            default_value="",
+            description=(
+                "Absolute saved SLAM Toolbox pose-graph prefix for localization mode; "
+                "omit the .posegraph/.data suffix."
+            ),
+        ),
+        DeclareLaunchArgument(
+            "map_start_pose",
+            default_value="",
+            description=(
+                "Required for localization: approximate initial map-frame [x, y, yaw] "
+                "in metres and radians, for example '[-0.5, -1.0, 0.0]'."
+            ),
         ),
         DeclareLaunchArgument(
             "system_modes_config",

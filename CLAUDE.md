@@ -197,6 +197,14 @@ Nav2 control. Record `/cmd_vel/safety_limited` in a future live run to verify
 the command-to-motion path. The hardware `base_driver` remains to be rebuilt
 under `src/drivers/`.
 
+Bringup supports opt-in `slam_mode:=localization` with a required absolute
+`pose_graph_prefix` pointing to paired `.posegraph`/`.data` files and a required
+map-frame `map_start_pose:='[x, y, yaw]'`. It uses
+upstream SLAM Toolbox and does not launch bag playback or motion control.
+The 1× Jetson replay through that bringup mode matched the earlier 158-pose
+localization result; see
+`docs/validation/isaac_bringup_localization_2026-09-30.md`.
+
 **Unvalidated:** the zone sizes in `collision_monitor.yaml` (stop 0.55 m, slow
 1.25 m, 35% throttle) were carried over from the old radial design and have
 never been measured against real stopping distance. Measure it at max speed and

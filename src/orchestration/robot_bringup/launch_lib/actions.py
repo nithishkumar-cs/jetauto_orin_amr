@@ -132,8 +132,21 @@ SLAM_MAPPING_SPEC = {
     "required_packages": ["slam_toolbox"],
 }
 
+SLAM_LOCALIZATION_SPEC = {
+    "package": "slam_toolbox",
+    "executable": "localization_slam_toolbox_node",
+    "name": "slam_toolbox",
+    "parameters": [str(project_config("localization", "slam_localization.yaml"))],
+}
 
-def _node_action(spec: dict, log_level: str, use_sim_time: bool, backend: str):
+
+def _node_action(
+    spec: dict,
+    log_level: str,
+    use_sim_time: bool,
+    backend: str,
+    extra_parameters: dict | None = None,
+):
     if "launch_file" in spec:
         launch_file = package_file(spec["package"], "launch", spec["launch_file"])
         return IncludeLaunchDescription(
@@ -145,7 +158,10 @@ def _node_action(spec: dict, log_level: str, use_sim_time: bool, backend: str):
         executable=spec["executable"],
         name=spec.get("name", spec["executable"]),
         output="screen",
-        parameters=[*spec.get("parameters", []), {"use_sim_time": use_sim_time}],
+        parameters=[
+            *spec.get("parameters", []),
+            {"use_sim_time": use_sim_time, **(extra_parameters or {})},
+        ],
         remappings=spec.get("remappings", []),
         arguments=["--ros-args", "--log-level", log_level],
     )
@@ -213,9 +229,7 @@ def build_actions(resolved: ResolvedConfig) -> list:
             continue
 
         missing_files = [
-            missing_file
-            for spec in specs
-            for missing_file in _missing_required_files(spec)
+            missing_file for spec in specs for missing_file in _missing_required_files(spec)
         ]
         if missing_files:
             pending.append(f"{name} (runtime files missing: {', '.join(missing_files)})")
@@ -247,28 +261,37 @@ def build_actions(resolved: ResolvedConfig) -> list:
         else:
             spec = MOTION_BACKEND_SPECS["hardware"]
             if not package_available(spec["package"]):
-                pending.append(
-                    f"drivers ({resolved.backend} package not built: {spec['package']})"
-                )
+                pending.append(f"drivers ({resolved.backend} package not built: {spec['package']})")
             else:
                 actions.append(_node_action(spec, resolved.log_level, False, resolved.backend))
                 launched.append(f"drivers:{resolved.backend}")
 
-    if resolved.slam_mode == "mapping":
-        required = [SLAM_MAPPING_SPEC["package"], *SLAM_MAPPING_SPEC["required_packages"]]
+    if resolved.slam_mode in ("mapping", "localization"):
+        spec = SLAM_MAPPING_SPEC if resolved.slam_mode == "mapping" else SLAM_LOCALIZATION_SPEC
+        required = [spec["package"], *spec.get("required_packages", [])]
         if resolved.backend == "hardware":
             required.extend(("localization_odometry_fusion", "robot_localization"))
         missing = [package for package in required if not package_available(package)]
         if missing:
-            pending.append(f"mapping (packages not built: {', '.join(missing)})")
+            pending.append(f"{resolved.slam_mode} (packages not built: {', '.join(missing)})")
         else:
             actions.append(
                 _node_action(
-                    SLAM_MAPPING_SPEC, resolved.log_level,
-                    resolved.backend != "hardware", resolved.backend,
+                    spec,
+                    resolved.log_level,
+                    resolved.backend != "hardware",
+                    resolved.backend,
+                    (
+                        {
+                            "map_file_name": resolved.pose_graph_prefix,
+                            "map_start_pose": list(resolved.map_start_pose),
+                        }
+                        if resolved.slam_mode == "localization"
+                        else None
+                    ),
                 )
             )
-            launched.append("mapping")
+            launched.append(resolved.slam_mode)
 
     if pending:
         actions.append(

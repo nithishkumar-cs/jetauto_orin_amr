@@ -64,3 +64,7 @@ map quality and `map -> odom` movement alone cannot establish it. A distinct
 Isaac route and an explicit accepted loop-edge check remain before Nav2
 control. The laptop is currently reachable only for outbound SSH to the
 Jetson, so a new Isaac run cannot be started from the Jetson.
+
+The same derived bag was later replayed through the new
+[robot_bringup saved-map localization mode](isaac_bringup_localization_2026-09-30.md),
+which reproduced the 158-pose accuracy result.
