@@ -55,6 +55,10 @@ closure with the current 3.0 m loop-search default. An isolated replay with a
 1.0 m diagnostic override did reach the acceptance path, but that setting is
 not yet validated for production. See
 `docs/validation/isaac_loop_closure_probe_2026-10-01.md`.
+The larger Isaac route did produce accepted closures at 3.0 m, but one caused
+a large map-frame pose jump against exact simulator odometry. That map is not
+validated for navigation control; see
+`docs/validation/isaac_extended_loop_closure_2026-10-05.md`.
 
 Saved-map localization is the other opt-in SLAM mode. Pass the **absolute
 prefix** of a SLAM Toolbox serialized map (both `.posegraph` and `.data`
