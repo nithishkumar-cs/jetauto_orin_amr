@@ -50,6 +50,11 @@ odometry component. It consumes `/scan` plus TF from `odom` through
 It does not command motion. On hardware, keep `enable_localization:=true` so
 the EKF supplies `odom -> base_link`; Isaac and rosbag require that TF from
 their source instead. Map saving is documented in the mapping package README.
+The three-lap Isaac mapping route did not produce an accepted automatic loop
+closure with the current 3.0 m loop-search default. An isolated replay with a
+1.0 m diagnostic override did reach the acceptance path, but that setting is
+not yet validated for production. See
+`docs/validation/isaac_loop_closure_probe_2026-10-01.md`.
 
 Saved-map localization is the other opt-in SLAM mode. Pass the **absolute
 prefix** of a SLAM Toolbox serialized map (both `.posegraph` and `.data`

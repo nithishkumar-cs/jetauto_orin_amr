@@ -1,0 +1,36 @@
+diff --git a/lib/karto_sdk/src/Mapper.cpp b/lib/karto_sdk/src/Mapper.cpp
+--- a/lib/karto_sdk/src/Mapper.cpp
++++ b/lib/karto_sdk/src/Mapper.cpp
+@@ -1504,5 +1504,9 @@ kt_bool MapperGraph::TryCloseLoop(LocalizedRangeScan * pScan, const Name & rSensorName)
+   kt_int32u scanIndex = 0;
+ 
+   LocalizedRangeScanVector candidateChain = FindPossibleLoopClosure(pScan, rSensorName, scanIndex);
++  if (pScan->GetUniqueId() % 50 == 0 || !candidateChain.empty()) {
++    std::cout << "KARTO_LOOP_CHECK scan_id=" << pScan->GetUniqueId()
++              << " first_candidate_chain_size=" << candidateChain.size() << std::endl;
++  }
+ 
+   while (!candidateChain.empty()) {
+@@ -1521,3 +1525,7 @@ kt_bool MapperGraph::TryCloseLoop(LocalizedRangeScan * pScan, const Name & rSensorName)
+     m_pMapper->FireLoopClosureCheck(stream.str());
++    std::cout << "KARTO_LOOP_COARSE scan_id=" << pScan->GetUniqueId()
++              << " candidate_chain_size=" << candidateChain.size()
++              << " response=" << coarseResponse << " variance_x=" << covariance(0, 0)
++              << " variance_y=" << covariance(1, 1) << std::endl;
+ 
+     if ((coarseResponse > m_pMapper->m_pLoopMatchMinimumResponseCoarse->GetValue()) &&
+@@ -1542,3 +1550,5 @@ kt_bool MapperGraph::TryCloseLoop(LocalizedRangeScan * pScan, const Name & rSensorName)
+       if (fineResponse < m_pMapper->m_pLoopMatchMinimumResponseFine->GetValue()) {
+         m_pMapper->FireLoopClosureCheck("REJECTED!");
++        std::cout << "KARTO_LOOP_FINE_REJECTED scan_id=" << pScan->GetUniqueId()
++                  << " response=" << fineResponse << std::endl;
+       } else {
+@@ -1549,5 +1559,8 @@ kt_bool MapperGraph::TryCloseLoop(LocalizedRangeScan * pScan, const Name & rSensorName)
+         CorrectPoses();
+ 
+         m_pMapper->FireEndLoopClosure("Loop closed!");
++        std::cout << "KARTO_ACCEPTED_LOOP_CLOSURE scan_id=" << pScan->GetUniqueId()
++                  << " scan_time=" << pScan->GetTime()
++                  << " candidate_chain_size=" << candidateChain.size() << std::endl;
+ 
+         loopClosed = true;
