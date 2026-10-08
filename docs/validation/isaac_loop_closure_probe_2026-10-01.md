@@ -35,10 +35,13 @@ The local, pinned SLAM Toolbox 2.6.10 build retained the separately validated
 heading-aware scan filter. The optional diagnostic patch
 `patches/slam_toolbox/2.6.10-loop-closure-probe.patch` prints a marker when
 `FindPossibleLoopClosure` returns a nonempty chain, coarse scores for such a
-chain, fine rejection, and an acceptance marker only **after**
+chain, fine rejection, and a fine-accepted candidate marker only **after**
 `LinkChainToScan` and `CorrectPoses`. It also prints a heartbeat every 50 scan
-IDs, so an empty log cannot be mistaken for an inactive mapper. This patch is
-for diagnostics only and is not applied by the normal build script.
+IDs, so an empty log cannot be mistaken for an inactive mapper. The patch
+was improved on 2026-10-08 to report Karto's link-distance gate separately;
+older logs called the last marker `KARTO_ACCEPTED_LOOP_CLOSURE`, which did
+not prove a graph link. This patch is for diagnostics only and is not applied
+by the normal build script.
 
 On isolated ROS domain 85, a 1.0× replay with an acceptance-only marker
 completed without an accepted event. On domain 86, a 1.25× replay with the
@@ -62,8 +65,8 @@ The same filtered bag was replayed on isolated ROS domain 87 with the same
 diagnostic patch and a single runtime override:
 `loop_search_maximum_distance:=1.0`. A ROS parameter query confirmed the
 node loaded `1.0`; the bag played to completion at 1.25×. Unlike the 3.0 m
-run, this produced eligible candidate chains and three direct acceptance
-markers from after `LinkChainToScan` and `CorrectPoses`:
+run, this produced eligible candidate chains and three fine-accepted markers
+from after `LinkChainToScan` and `CorrectPoses`:
 
 | Simulated time | Scan ID | Candidate chain | Coarse response |
 | ---: | ---: | ---: | ---: |
@@ -74,9 +77,10 @@ markers from after `LinkChainToScan` and `CorrectPoses`:
 The route returned near its start at about 44–48 s, 92–95 s, and 139 s.
 Thus the first accepted event was on lap one, while the other two were on a
 repeated section of lap two. There was no further acceptance on lap three.
-These markers prove that the automatic acceptance path executed; they do not
-prove that every acceptance was a beneficial correction or that closure at
-each complete lap was achieved.
+These markers prove that the fine-acceptance path executed. Because the old
+probe did not log Karto's subsequent link-distance gate, they do not prove
+that new loop edges were added or that closure at each complete lap was
+achieved. See the [later false-match diagnosis](isaac_false_loop_match_2026-10-08.md).
 
 The exported pose graph returned `result=0` and is stored at
 `/tmp/jetauto_loop_probe_1m_20261005.{posegraph,data}`. A direct Nav2 map
@@ -107,9 +111,10 @@ bash scripts/setup/build_slam_toolbox_heading_fix.sh
 
 Launch `localization_slam_mapping` with `backend:=rosbag` on an isolated ROS
 domain, then play the filtered bag **without** `--clock` because the bag
-already publishes `/clock`. Capture the mapper console output and look for
-`KARTO_ACCEPTED_LOOP_CLOSURE`. After the test, reverse the optional patch and
-rebuild the normal overlay:
+already publishes `/clock`. Capture the mapper console output and inspect
+`KARTO_FINE_ACCEPTED_LOOP_CANDIDATE` alongside `KARTO_LOOP_LINK_GATE`;
+neither alone proves a correct loop closure. After the test, reverse the
+optional patch and rebuild the normal overlay:
 
 ```bash
 git -C src/localization/slam_toolbox_vendor apply --reverse \

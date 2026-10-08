@@ -25,12 +25,29 @@ diff --git a/lib/karto_sdk/src/Mapper.cpp b/lib/karto_sdk/src/Mapper.cpp
 +        std::cout << "KARTO_LOOP_FINE_REJECTED scan_id=" << pScan->GetUniqueId()
 +                  << " response=" << fineResponse << std::endl;
        } else {
-@@ -1549,5 +1559,8 @@ kt_bool MapperGraph::TryCloseLoop(LocalizedRangeScan * pScan, const Name & rSensorName)
+@@ -1545,9 +1555,25 @@ kt_bool MapperGraph::TryCloseLoop(LocalizedRangeScan * pScan, const Name & rSensorName)
+         m_pMapper->FireBeginLoopClosure("Closing loop...");
+
+         pScan->SetSensorPose(bestPose);
++        Pose2 matchedPose = pScan->GetReferencePose(
++          m_pMapper->m_pUseScanBarycenter->GetValue());
++        LocalizedRangeScan * closestScan = GetClosestScanToPose(candidateChain, matchedPose);
++        Pose2 closestPose = closestScan->GetReferencePose(
++          m_pMapper->m_pUseScanBarycenter->GetValue());
++        kt_double squaredDistance = matchedPose.GetPosition().SquaredDistance(
++          closestPose.GetPosition());
++        kt_double limitSquared = math::Square(m_pMapper->m_pLinkScanMaximumDistance->GetValue());
++        std::cout << "KARTO_LOOP_LINK_GATE scan_id=" << pScan->GetUniqueId()
++                  << " closest_id=" << closestScan->GetUniqueId()
++                  << " squared_distance=" << squaredDistance
++                  << " limit_squared=" << limitSquared
++                  << " passed=" << (squaredDistance < limitSquared + KT_TOLERANCE) << std::endl;
+         LinkChainToScan(candidateChain, pScan, bestPose, covariance);
          CorrectPoses();
- 
+
          m_pMapper->FireEndLoopClosure("Loop closed!");
-+        std::cout << "KARTO_ACCEPTED_LOOP_CLOSURE scan_id=" << pScan->GetUniqueId()
++        std::cout << "KARTO_FINE_ACCEPTED_LOOP_CANDIDATE scan_id=" << pScan->GetUniqueId()
 +                  << " scan_time=" << pScan->GetTime()
 +                  << " candidate_chain_size=" << candidateChain.size() << std::endl;
- 
+
          loopClosed = true;

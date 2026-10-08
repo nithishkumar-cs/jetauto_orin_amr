@@ -1,14 +1,17 @@
-# Extended Isaac route: accepted closures but inaccurate mapping — 2026-10-05
+# Extended Isaac route: false loop match and inaccurate mapping — 2026-10-05
 
 ## Outcome
 
-The new two-lap Isaac route **did trigger automatic SLAM Toolbox loop
-closures at the normal 3.0 m search distance**. It did **not** produce a
-trustworthy map-frame trajectory. One accepted correction was followed by a
+The new two-lap Isaac route **triggered SLAM Toolbox's loop-closure acceptance
+path at the normal 3.0 m search distance**. It did **not** produce a
+trustworthy map-frame trajectory. One incorrect link was followed by a
 1.37 m increase in position error within 0.2 s, and a same-input control run
 with loop closing disabled did not make that jump. Do not use this mapping
 result as a Nav2 control map or treat an acceptance marker as proof of a
-correct loop closure.
+graph link or a correct loop closure. The subsequent
+[focused diagnosis](isaac_false_loop_match_2026-10-08.md) found that four
+early markers failed Karto's link gate, while a later match to a physically
+different location passed it and caused the pose jump.
 
 This follows the [small-route candidate probe](isaac_loop_closure_probe_2026-10-01.md),
 which found no candidates at 3.0 m. The larger route therefore solved the
@@ -39,10 +42,15 @@ recorder captured only the live mapper's `/pose` in
 `/tmp/jetauto_loop_route_probe_20261005/pose_bag`. Both the player and
 recorder exited cleanly.
 
-The probe logged **15 accepted events** after `LinkChainToScan` and
-`CorrectPoses`: four at 122.75–123.35 s, one at 224.85 s, nine at
+The original probe logged **15 fine-accepted candidates** after calling
+`LinkChainToScan` and `CorrectPoses`: four at 122.75–123.35 s, one at 224.85 s, nine at
 237.45–248.95 s, and one at 302.75 s. The log is
 `/tmp/jetauto_loop_route_probe_20261005/mapper_console.log`. The final
+count of actual new graph edges in that full replay is unverified: the
+`LinkChainToScan` call can return without linking when its distance gate fails.
+The old marker name `KARTO_ACCEPTED_LOOP_CLOSURE` overstated what it proved.
+The optional probe was corrected on 2026-10-08 to report the gate separately.
+The final
 serialized pose graph returned `result=0` and is at
 `/tmp/jetauto_loop_route_probe_20261005/final_map.{posegraph,data}`.
 The occupancy map exported successfully at 216×219 cells, 0.05 m/cell, to
@@ -63,7 +71,9 @@ All 1,234 poses matched within 5.6 ms.
 | Position error | 0.469 m | 2.161 m | 2.237 m |
 | Heading error | 0.033 rad | 0.162 rad | 0.774 rad |
 
-The decisive local comparison is around accepted event scan ID 557:
+The decisive local comparison in this replay is around scan ID 557. The
+focused retry linked scan ID 559 at 123.55 s instead, showing that the exact
+event timing is replay-sensitive:
 
 | Simulated time | Loop closing enabled | Loop closing disabled |
 | ---: | ---: | ---: |
@@ -82,7 +92,7 @@ the 95th percentile, and 0.986 m maximum without closure; with closure it
 was 0.192/2.162/2.237 m across 712 poses. The control still has substantial
 scan-matching error, so disabling loop closing is not a validated production
 fix. The matching timestamps and absence of the 123.35 s jump in the control
-strongly implicate the accepted correction in the large discontinuity.
+strongly implicate the false match/link in the large discontinuity.
 
 Recompute the metrics after sourcing ROS Humble:
 
@@ -105,9 +115,7 @@ heading-fix-only SLAM overlay rebuilt; the installed library no longer
 contains the diagnostic marker. No production SLAM parameter, Nav2
 controller, physical driver, or original bag was changed.
 
-Before using an Isaac map for Nav2 control, investigate the wrong accepted
-match around 123.35 s and the pre-existing no-loop error. A useful next
-experiment is to inspect the matched scan chain and scene geometry at that
-event, then test a justified correction on the same bag **against pose
-accuracy**, not merely against the number of accepted closures. Repeat live
-network capture on the same LAN when available.
+Before using an Isaac map for Nav2 control, test a justified change against
+the false match documented in the focused diagnosis and the pre-existing
+no-loop error. Evaluate **pose accuracy**, not merely the count of fine
+acceptances. Repeat live network capture on the same LAN when available.
