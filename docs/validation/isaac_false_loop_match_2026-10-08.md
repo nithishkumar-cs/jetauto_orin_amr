@@ -80,3 +80,7 @@ The next validation should distinguish real revisit matches from these
 repetitive-scene matches using exact Isaac pose, then evaluate any proposed
 matcher/route change against full pose accuracy. Do not enable Nav2 motion
 control on this map.
+
+The [2026-10-09 landmark-variant replay](isaac_landmark_loop_replay_2026-10-09.md)
+performed that next check. It avoided this particular false link, but its
+three later link-gate passes also paired physically distinct locations.
