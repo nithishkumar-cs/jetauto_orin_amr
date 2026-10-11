@@ -2,10 +2,14 @@
 
 ## Result
 
-The large position jump in the extended-route replay is caused by a false
-spatial match. The mapper associated a scan at about 123.55 s with a scan
-chain from about 88–90 s even though Isaac's exact odometry places those
-locations 3.23 m apart. The match passed Karto's fine-response test and its
+The large position jump in the extended-route replay is caused by an
+incorrect relative-pose match. The mapper associated a scan at about
+123.55 s with a scan chain from about 88–90 s. A later
+[relative-pose audit](isaac_loop_match_relative_audit_2026-10-11.md) measured
+the proposed translation error at **2.176 m** against Isaac's exact odometry;
+the original observation that the scan centers were 3.23 m apart was not
+enough to establish a false match by itself. The match passed Karto's
+fine-response test and its
 1.5 m *matched-pose* link-distance gate; immediately afterward, map-frame
 position error rose from 0.203 m to 1.502 m. This is not evidence of a
 successful loop closure or a Nav2-ready map.
@@ -82,5 +86,8 @@ matcher/route change against full pose accuracy. Do not enable Nav2 motion
 control on this map.
 
 The [2026-10-09 landmark-variant replay](isaac_landmark_loop_replay_2026-10-09.md)
-performed that next check. It avoided this particular false link, but its
-three later link-gate passes also paired physically distinct locations.
+avoided this particular link in that replay. Its earlier claim that all
+three later gate passes were false solely because the scan centers were
+physically separate was too strong; the subsequent
+[relative-pose audit](isaac_loop_match_relative_audit_2026-10-11.md) uses the
+actual proposed transform and finds both accurate and inaccurate matches.

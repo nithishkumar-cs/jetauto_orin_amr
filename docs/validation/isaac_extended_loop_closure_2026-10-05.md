@@ -11,7 +11,10 @@ result as a Nav2 control map or treat an acceptance marker as proof of a
 graph link or a correct loop closure. The subsequent
 [focused diagnosis](isaac_false_loop_match_2026-10-08.md) found that four
 early markers failed Karto's link gate, while a later match to a physically
-different location passed it and caused the pose jump.
+different location passed it and caused the pose jump. The later
+[relative-pose audit](isaac_loop_match_relative_audit_2026-10-11.md) confirms
+that this particular proposed constraint was wrong by 2.176 m in relative
+translation; physical separation alone would not have proved that.
 
 This follows the [small-route candidate probe](isaac_loop_closure_probe_2026-10-01.md),
 which found no candidates at 3.0 m. The larger route therefore solved the

@@ -45,3 +45,27 @@ Pass the original localization bag as the reference and the derived bag with
 `--perturbed-bag` to report both localization error and raw input drift.
 See the [drift validation report](../docs/validation/isaac_odometry_drift_2026-09-30.md)
 for the tested amplitudes, commands, results, and limits.
+
+## SLAM loop-match relative-pose audit
+
+`audit_karto_loop_matches.py` reads console output from the optional Karto
+loop-closure probe and compares each fine-accepted match with Isaac's exact
+`/odom/wheel` poses. It transforms odometry to the LiDAR frame using the
+configured rigid offset (default: 0.15 m forward). A large distance between
+scan centers is **not** by itself evidence of a false match: the graph edge
+stores their relative pose. The report distinguishes a fine-accepted candidate
+from one that passed Karto's link-distance gate; a gate pass still does not
+prove that a new graph edge was inserted.
+
+```bash
+source /opt/ros/humble/setup.bash
+python3 rosbag/audit_karto_loop_matches.py \
+  /path/to/isaac_raw_bag /path/to/mapper_console.log --all
+```
+
+Use `--sensor-x-m`, `--sensor-y-m`, and `--sensor-yaw-rad` if the LiDAR
+mount differs from the Isaac scene. Omit `--all` to print only gate-passing
+matches. The probe is diagnostic only; remove it and rebuild the normal
+SLAM Toolbox overlay after collecting a trace.
+See the [Isaac relative-pose audit](../docs/validation/isaac_loop_match_relative_audit_2026-10-11.md)
+for the two-bag comparison and its limitations.

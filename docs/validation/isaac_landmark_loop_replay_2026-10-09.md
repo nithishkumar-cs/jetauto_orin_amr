@@ -3,13 +3,15 @@
 ## Outcome
 
 The opt-in asymmetric LiDAR landmarks avoided the **specific** false link
-seen near 123.55 s in the original bag, but they did **not** make automatic
-loop closure trustworthy. Three later matches passed Karto's 1.5 m
-matched-pose link gate even though Isaac ground truth places each scan pair
-2.37–3.64 m apart. Loop-enabled mapping had lower aggregate pose error than
-the no-loop control, but a numerically helpful correction is not proof that
-its underlying graph constraint is true. This map is not cleared for Nav2
-motion control.
+seen near 123.55 s in the original bag, but they did **not** establish
+trustworthy automatic loop closure. Three later matches passed Karto's 1.5 m
+matched-pose link gate. This report originally called all three false because
+Isaac placed their scan centers 2.37–3.64 m apart; that inference was wrong.
+Karto's graph constraint is a **relative pose**, which can be valid between
+separated but overlapping LiDAR scans. A later
+[relative-pose audit](isaac_loop_match_relative_audit_2026-10-11.md) found
+both accurate and grossly wrong matches in a fresh replay. This map is not
+cleared for Nav2 motion control.
 
 This extends the [original false-match diagnosis](isaac_false_loop_match_2026-10-08.md).
 The Isaac-side variant is local commit `7283b35` in the separate simulator
@@ -73,7 +75,7 @@ run subsequently reached its 1.776 m maximum near 224 s. It ended near
 ground truth, whereas the no-loop run ended 1.501 m away. This demonstrates
 the impact of the loop-closing path, **not the validity of its matches**.
 
-## Gate-passing matches are spatially false
+## Gate-passing matches: center distance alone was inconclusive
 
 The probe logged 171 fine-accepted candidates, but only three passed the
 subsequent link-distance gate. For all 171 fine-accepted log entries, Karto's
@@ -93,9 +95,11 @@ distances (1.918, 0.788, and 2.130 m²); they are *not* ground-truth
 distances. Karto's gate checks where the scan matcher placed the current
 scan, so a false match can pass it. A gate pass means `LinkChainToScan` will
 attempt a link; the probe does not independently log whether `AddEdge`
-inserted a new constraint. Irrespective of that internal distinction, these
-three associations are not physical revisits. Do not count them as verified
-loop closures just because aggregate trajectory error improved.
+inserted a new constraint. The table proves these are not *same-position*
+revisits, but it does **not** prove their relative-pose constraints are false.
+The subsequent [audit](isaac_loop_match_relative_audit_2026-10-11.md)
+compares proposed relative transforms with Isaac ground truth. Do not count
+these gate passes as verified correct closures either.
 
 ## Reproduction and next decision
 
@@ -117,7 +121,7 @@ For the control, use the same mapper configuration with only
 That cleanup was done for this run: the installed mapper again contains only
 the tracked heading-aware scan fix.
 
-The next test should audit candidate selection and match displacement against
-Isaac truth on both bags, then evaluate any proposed rejection rule on both
-false associations and genuine revisits. Do not promote a score or distance
-threshold from this single replay into production configuration.
+The [subsequent audit](isaac_loop_match_relative_audit_2026-10-11.md) tests
+candidate selection and match displacement against Isaac truth on both bags.
+Do not promote a score or distance threshold from this single replay into
+production configuration.
