@@ -60,3 +60,11 @@ diff --git a/lib/karto_sdk/src/Mapper.cpp b/lib/karto_sdk/src/Mapper.cpp
 +                  << " candidate_chain_size=" << candidateChain.size() << std::endl;
 
          loopClosed = true;
+@@ -1613,5 +1648,7 @@ Edge<LocalizedRangeScan> * MapperGraph::AddEdge(
+   Edge<LocalizedRangeScan> * pEdge = new Edge<LocalizedRangeScan>(v1->second, v2->second);
+   Graph<LocalizedRangeScan>::AddEdge(pEdge);
+   rIsNewEdge = true;
++  std::cout << "KARTO_GRAPH_EDGE_CREATED source_id=" << pSourceScan->GetUniqueId()
++            << " target_id=" << pTargetScan->GetUniqueId() << std::endl;
+   return pEdge;
+ }

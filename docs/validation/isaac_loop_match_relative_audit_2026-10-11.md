@@ -93,6 +93,11 @@ route, inspect actual graph-edge insertion and saved-map quality, and verify
 localization and Nav2 behavior separately. These bags use exact Isaac
 odometry and do not exercise hardware wheel/IMU drift or real-sensor noise.
 
+The [2026-10-12 full-route replay and diagonal-route localization](isaac_full_route_1m_map_and_localization_2026-10-12.md)
+completed the Jetson-only next check. It supports the 1.0 m test setting
+over the full original bag and demonstrates inter-lap graph links, but still
+does not provide the distinct-scene evidence needed for a production default.
+
 Diagnostic output and `/pose` bags are at:
 
 - `/tmp/jetauto_large_base_radius3_pose_trace_20261011/`

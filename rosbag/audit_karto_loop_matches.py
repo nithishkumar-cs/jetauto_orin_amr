@@ -34,6 +34,13 @@ GATE_PATTERN = re.compile(
     rf"squared_distance=(?P<squared_distance>{NUMBER}) "
     rf"limit_squared=(?P<limit_squared>{NUMBER}) passed=(?P<passed>[01])"
 )
+EDGE_PATTERN = re.compile(
+    r"KARTO_GRAPH_EDGE_CREATED source_id=(?P<source_id>\d+) "
+    r"target_id=(?P<target_id>\d+)"
+)
+FINISHED_PATTERN = re.compile(
+    r"KARTO_FINE_ACCEPTED_LOOP_CANDIDATE scan_id=(?P<current_id>\d+)"
+)
 
 
 @dataclass(frozen=True)
@@ -80,11 +87,15 @@ def pose_from_match(groups, prefix):
 def parse_events(log_text):
     events = []
     pending = None
+    active_link_attempt = None
+    saw_edge_probe = False
     for line in log_text.splitlines():
         match = MATCH_PATTERN.search(line)
         if match:
             if pending is not None:
                 raise ValueError("Loop match without subsequent link-gate result")
+            if active_link_attempt is not None:
+                raise ValueError("Link attempt without completion marker")
             groups = match.groupdict()
             pending = {
                 "current_id": int(groups["current_id"]),
@@ -98,23 +109,45 @@ def parse_events(log_text):
             }
             continue
         gate = GATE_PATTERN.search(line)
-        if not gate:
+        if gate:
+            if pending is None:
+                raise ValueError("Link-gate result without preceding loop match")
+            groups = gate.groupdict()
+            if (
+                int(groups["current_id"]) != pending["current_id"]
+                or int(groups["closest_id"]) != pending["closest_id"]
+            ):
+                raise ValueError("Loop match and link-gate scan IDs differ")
+            pending["gate_distance_m"] = math.sqrt(float(groups["squared_distance"]))
+            pending["gate_limit_m"] = math.sqrt(float(groups["limit_squared"]))
+            pending["gate_passed"] = groups["passed"] == "1"
+            pending["new_graph_edge"] = None
+            events.append(pending)
+            active_link_attempt = pending
+            pending = None
             continue
-        if pending is None:
-            raise ValueError("Link-gate result without preceding loop match")
-        groups = gate.groupdict()
-        if (
-            int(groups["current_id"]) != pending["current_id"]
-            or int(groups["closest_id"]) != pending["closest_id"]
-        ):
-            raise ValueError("Loop match and link-gate scan IDs differ")
-        pending["gate_distance_m"] = math.sqrt(float(groups["squared_distance"]))
-        pending["gate_limit_m"] = math.sqrt(float(groups["limit_squared"]))
-        pending["gate_passed"] = groups["passed"] == "1"
-        events.append(pending)
-        pending = None
+        edge = EDGE_PATTERN.search(line)
+        if edge:
+            saw_edge_probe = True
+            if active_link_attempt is not None and (
+                int(edge["source_id"]) == active_link_attempt["closest_id"]
+                and int(edge["target_id"]) == active_link_attempt["current_id"]
+            ):
+                active_link_attempt["new_graph_edge"] = True
+            continue
+        finished = FINISHED_PATTERN.search(line)
+        if finished and active_link_attempt is not None:
+            if int(finished["current_id"]) != active_link_attempt["current_id"]:
+                raise ValueError("Link completion marker scan ID differs")
+            active_link_attempt = None
     if pending is not None:
         raise ValueError("Loop match without subsequent link-gate result")
+    if active_link_attempt is not None:
+        raise ValueError("Link attempt without completion marker")
+    if saw_edge_probe:
+        for event in events:
+            if event["new_graph_edge"] is None:
+                event["new_graph_edge"] = False
     return events
 
 
@@ -150,6 +183,7 @@ def audit(events, odometry, offset, max_skew_s):
                 "closest_time_s": event["closest_time"],
                 "fine_response": event["fine_response"],
                 "gate_passed": event["gate_passed"],
+                "new_graph_edge": event["new_graph_edge"],
                 "gate_distance_m": round(event["gate_distance_m"], 4),
                 "truth_center_distance_m": round(position_error(old_truth, current_truth), 4),
                 "relative_position_error_m": round(position_error(matched_relative, true_relative), 4),
@@ -196,6 +230,11 @@ def main():
             {
                 "fine_accepted_candidates": len(rows),
                 "gate_passes": sum(row["gate_passed"] for row in rows),
+                "new_graph_edges": (
+                    sum(row["new_graph_edge"] is True for row in rows)
+                    if any(row["new_graph_edge"] is not None for row in rows)
+                    else None
+                ),
                 "rows": selected,
             },
             indent=2,

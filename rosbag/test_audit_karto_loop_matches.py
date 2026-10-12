@@ -26,6 +26,7 @@ class AuditKartoLoopMatchesTest(unittest.TestCase):
                 "closest_sensor_pose=0.15 0 0",
                 "KARTO_LOOP_LINK_GATE scan_id=7 closest_id=2 squared_distance=1 "
                 "limit_squared=2.25 passed=1",
+                "KARTO_FINE_ACCEPTED_LOOP_CANDIDATE scan_id=7 scan_time=10 candidate_chain_size=5",
             ]
         )
         events = parse_events(log)
@@ -36,6 +37,37 @@ class AuditKartoLoopMatchesTest(unittest.TestCase):
         self.assertEqual(rows[0]["relative_heading_error_rad"], 0.0)
         self.assertEqual(rows[0]["truth_center_distance_m"], 2.0)
         self.assertTrue(rows[0]["gate_passed"])
+        self.assertIsNone(rows[0]["new_graph_edge"])
+
+    def test_new_edge_marker_is_correlated_with_loop_pair(self):
+        log = "\n".join(
+            [
+                "KARTO_GRAPH_EDGE_CREATED source_id=1 target_id=2",
+                "KARTO_LOOP_MATCH scan_id=7 scan_time=10 closest_id=2 closest_time=2 "
+                "fine_response=0.8 prior_sensor_pose=1 0 0 matched_sensor_pose=2 0 0 "
+                "closest_sensor_pose=0 0 0",
+                "KARTO_LOOP_LINK_GATE scan_id=7 closest_id=2 squared_distance=1 "
+                "limit_squared=2.25 passed=1",
+                "KARTO_GRAPH_EDGE_CREATED source_id=2 target_id=7",
+                "KARTO_FINE_ACCEPTED_LOOP_CANDIDATE scan_id=7 scan_time=10 candidate_chain_size=5",
+            ]
+        )
+        self.assertTrue(parse_events(log)[0]["new_graph_edge"])
+
+    def test_gate_pass_without_new_edge_is_not_counted_as_created(self):
+        log = "\n".join(
+            [
+                "KARTO_GRAPH_EDGE_CREATED source_id=1 target_id=2",
+                "KARTO_LOOP_MATCH scan_id=7 scan_time=10 closest_id=2 closest_time=2 "
+                "fine_response=0.8 prior_sensor_pose=1 0 0 matched_sensor_pose=2 0 0 "
+                "closest_sensor_pose=0 0 0",
+                "KARTO_LOOP_LINK_GATE scan_id=7 closest_id=2 squared_distance=1 "
+                "limit_squared=2.25 passed=1",
+                "KARTO_GRAPH_EDGE_CREATED source_id=3 target_id=7",
+                "KARTO_FINE_ACCEPTED_LOOP_CANDIDATE scan_id=7 scan_time=10 candidate_chain_size=5",
+            ]
+        )
+        self.assertFalse(parse_events(log)[0]["new_graph_edge"])
 
     def test_mismatched_gate_is_rejected(self):
         log = "\n".join(
