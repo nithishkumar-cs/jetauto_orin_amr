@@ -33,6 +33,9 @@ global_costmap:
         scan:
           topic: /scan
           data_type: "LaserScan"
+          # Nav2 Humble's per-source default is 0.0 m, which rejects this
+          # robot's LiDAR returns (simulated lidar_link is 0.24 m high).
+          max_obstacle_height: 2.0
           marking: true
           clearing: true
           obstacle_max_range: 4.0

@@ -1,5 +1,10 @@
 # Live-start Nav2 planning, scan acceptance, and odometry drift — 2026-10-13
 
+Follow-up: [the scan-to-costmap obstacle check](isaac_costmap_obstacle_2026-10-13.md)
+found and corrected a separate per-source height parameter omission. It
+also measured 0.4/0.6 s waits and verified synthetic obstacle mark/clear
+with a temporary 0.8 s wait. The 0.2 s production TF wait remains unchanged.
+
 ## Outcome
 
 Three `ComputePathToPose` requests using Nav2's **current robot pose**

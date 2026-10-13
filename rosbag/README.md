@@ -95,3 +95,15 @@ Neither path computation nor this probe publishes `/cmd_vel`. A path can
 succeed even when most live scans fail the costmap TF filter; consult the
 [1× live-start validation](../docs/validation/isaac_live_start_planner_tf_2026-10-13.md)
 before interpreting a plan as obstacle-awareness evidence.
+
+## Scan-to-costmap obstacle check
+
+`inject_costmap_obstacle.py` makes an isolated `/scan_costmap` copy of an
+Isaac bag's scans, adding a short-lived return at a chosen map point without
+changing `/scan` or the saved-map localizer input. With a planner configured
+to consume `/scan_costmap`, `analyze_costmap_scan_filter.py` measures TF-filter
+admission and estimated scan age, while `analyze_costmap_obstacle.py`
+checks whether costmap snapshots mark and then clear the target. See the
+[replay and findings](../docs/validation/isaac_costmap_obstacle_2026-10-13.md),
+including the per-source height configuration issue and the limits of the
+temporary 0.8 s TF wait.

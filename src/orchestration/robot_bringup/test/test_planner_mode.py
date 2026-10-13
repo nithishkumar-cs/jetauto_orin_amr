@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -30,6 +31,19 @@ def resolved(navigation_mode):
 def test_unknown_navigation_mode_rejected():
     with pytest.raises(RuntimeError, match="Unknown navigation_mode"):
         config.resolve_navigation_mode({"navigation_mode": "controller"})
+
+
+def test_planner_scan_source_accepts_lidar_height():
+    project_root = Path(__file__).resolve().parents[4]
+    planner_config = yaml.safe_load(
+        (project_root / "configs/navigation/planner_only.yaml").read_text()
+    )
+    costmap = planner_config["global_costmap"]["global_costmap"]["ros__parameters"]
+    scan = costmap["obstacle_layer"]["scan"]
+    assert scan["topic"] == "/scan"
+    assert scan["max_obstacle_height"] > 0.24
+    assert scan["marking"] is True
+    assert scan["clearing"] is True
 
 
 @pytest.mark.parametrize("backend", ["isaac", "rosbag"])
