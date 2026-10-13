@@ -23,7 +23,11 @@ def pose(x, y):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--start", nargs=2, type=float, required=True)
+    start_mode = parser.add_mutually_exclusive_group(required=True)
+    start_mode.add_argument("--start", nargs=2, type=float)
+    start_mode.add_argument(
+        "--live-start", action="store_true", help="let Nav2 use the current robot TF pose"
+    )
     parser.add_argument("--goal", nargs=2, type=float, required=True)
     parser.add_argument("--expect", choices=("success", "failure"))
     parser.add_argument("--inspect-costmap", action="store_true")
@@ -37,10 +41,11 @@ def main():
             raise RuntimeError("/compute_path_to_pose is unavailable")
 
         request = ComputePathToPose.Goal()
-        request.start = pose(*args.start)
+        if args.start is not None:
+            request.start = pose(*args.start)
         request.goal = pose(*args.goal)
         request.planner_id = "GridBased"
-        request.use_start = True
+        request.use_start = not args.live_start
         send = client.send_goal_async(request)
         rclpy.spin_until_future_complete(node, send, timeout_sec=10.0)
         if not send.done() or not send.result().accepted:
@@ -59,9 +64,16 @@ def main():
         )
         print(
             f"status={response.status} succeeded={response.status == GoalStatus.STATUS_SUCCEEDED} "
+            f"start_source={'live_tf' if args.live_start else 'explicit'} "
             f"poses={len(path.poses)} "
             f"length_m={length:.3f} frame={path.header.frame_id}"
         )
+        if path.poses:
+            first = path.poses[0].pose.position
+            print(
+                f"path_start=({first.x:.3f},{first.y:.3f}) "
+                f"path_stamp={path.header.stamp.sec}.{path.header.stamp.nanosec:09d}"
+            )
         if args.expect is not None:
             succeeded = response.status == GoalStatus.STATUS_SUCCEEDED
             if succeeded != (args.expect == "success"):

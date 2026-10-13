@@ -74,3 +74,24 @@ for the two-bag comparison and its limitations, and the
 [full-route follow-up](../docs/validation/isaac_full_route_1m_map_and_localization_2026-10-12.md)
 for actual graph-edge insertion, saved-map export, and diagonal-route
 localization.
+The [distinct-geometry comparison](../docs/validation/isaac_distinct_geometry_slam_2026-10-12.md)
+replays a new pillar-cluster scene at both 1.0 m and 3.0 m and localizes a
+separate interior route against each saved map.
+
+## Planner-only path probe
+
+With a planner-only stack already running, `probe_planner_only.py` asks Nav2
+to compute a path and optionally checks every returned path pose against a
+fresh global-costmap snapshot. `--start x y` tests an explicit map-frame
+start; `--live-start` instead sets `use_start=false` so Nav2 obtains the
+robot's current pose from TF. These modes are mutually exclusive:
+
+```bash
+python3 rosbag/probe_planner_only.py --live-start --goal 2.27 1.20 \
+  --expect success --inspect-costmap
+```
+
+Neither path computation nor this probe publishes `/cmd_vel`. A path can
+succeed even when most live scans fail the costmap TF filter; consult the
+[1× live-start validation](../docs/validation/isaac_live_start_planner_tf_2026-10-13.md)
+before interpreting a plan as obstacle-awareness evidence.

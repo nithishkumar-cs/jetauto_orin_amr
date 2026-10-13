@@ -200,9 +200,31 @@ translation error, and the graph gained inter-lap links through other Karto
 paths. The resulting saved map localized on the existing diagonal route
 with 0.031 m median / 0.055 m p95 error. Production SLAM parameters are
 unchanged. The same diagonal bag with synthetic odometry TF drift up to
-0.671 m still localized at 0.029 m median / 0.056 m p95 error. A distinct
-Isaac scene, realistic odometry/noise, and Nav2
-planning/control validation remain before claiming navigation readiness.
+0.671 m still localized at 0.029 m median / 0.056 m p95 error. A
+new pillar-cluster scene and independent localization route are in
+`docs/validation/isaac_distinct_geometry_slam_2026-10-12.md`: the test-only
+1.0 m radius mapped at 0.045 m median / 0.234 m p95 position error and
+localized at 0.043 m median / 0.160 m p95, better than the 3.0 m replay.
+The 1.0 m run inserted one explicitly audited loop edge with 0.016 m relative
+translation error. Production SLAM settings remain unchanged. Realistic
+odometry/noise and Nav2 controlled-motion validation remain before claiming
+navigation readiness.
+
+The new scene's map also passed the
+`docs/validation/isaac_geometry_planner_only_2026-10-12.md` path-only replay:
+five successful Nav2 plans (including a pillar detour), two rejected invalid
+goals, and bounded saved-map localization. No `/cmd_vel` or controller ran;
+the costmap emitted four throttled scan-drop notices, but the actual drop
+count is unknown. A temporary 0.8 s TF wait eliminated those notices in one
+replay; see `docs/validation/isaac_planner_tf_filter_2026-10-12.md`.
+The 2026-10-13 1× follow-up directly counted the global costmap's scan TF
+filter events: checked-in 0.2 s wait passed 95/532 scans, while a temporary
+0.8 s wait passed 529/532. Three live-start Nav2 plans succeeded, but that
+does not make the default costmap safe for motion. On the distinct geometry,
+0.583 m injected wheel-TF translation drift plus 0.08 rad yaw drift left
+saved-map localization at 0.028 m median / 0.122 m p95 position error.
+See `docs/validation/isaac_live_start_planner_tf_2026-10-13.md`; no
+production timing or motion setting was changed.
 Record `/cmd_vel/safety_limited` in a future live run to verify
 the command-to-motion path. The hardware `base_driver` remains to be rebuilt
 under `src/drivers/`.

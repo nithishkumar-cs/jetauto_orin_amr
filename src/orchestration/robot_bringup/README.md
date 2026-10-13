@@ -105,3 +105,10 @@ replay the source bag in a separate terminal. If the bag contains `/clock`, do
 The recorded `/tf` must exclude `map -> odom`, leaving that transform to the
 live localizer. See `docs/validation/isaac_planner_only_2026-10-01.md` for the
 tested commands and path-only results.
+The newer [pillar-cluster planner-only replay](../../../docs/validation/isaac_geometry_planner_only_2026-10-12.md)
+also tested a route around an obstacle using the distinct-scene 1.0 m map;
+it did not enable motion control.
+The [1× live-start and scan-filter follow-up](../../../docs/validation/isaac_live_start_planner_tf_2026-10-13.md)
+shows that the checked-in 0.2 s global-costmap TF wait passed only 95 of 532
+received scans in that replay. Path success is not motion readiness; this
+timing gap must be resolved before using the costmap for controlled driving.
