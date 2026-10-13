@@ -100,16 +100,19 @@ Use ROS Humble: `source /opt/ros/humble/setup.bash`.
   only**. The radial-zone policy that used to live here was deleted in favour of
   `nav2_collision_monitor`; the latch survives because collision_monitor has no e-stop input.
   A controller e-stop message latches it and a controller reset clears it.
-  `estop_gate_node` subscribes to `/cmd_vel`, `/estop/engaged`, and `/estop/reset`.
+  `estop_gate_node` subscribes to `/cmd_vel/collision_limited`,
+  `/estop/engaged`, and `/estop/reset`.
   While latched it publishes zero velocity for each received command; otherwise it publishes commands
   to `/cmd_vel/safety_limited` after collision_monitor publishes its result to
   `/cmd_vel/collision_limited`; it is the final software command authority.
 - `collision_monitor` — **WIRED AND VERIFIED ACTIVE.** Config at
   `configs/safety/collision_monitor.yaml`, launched by bringup together with its
   lifecycle manager. Publishes `/cmd_vel/collision_limited`, `/safety/zone_stop`,
-  `/safety/zone_slow`; consumes `/cmd_vel`. It has **no observation source
-  publishing yet** — `/scan` is declared but no driver exists — so it currently
-  gates nothing.
+  `/safety/zone_slow`; consumes `/cmd_vel` and `/scan`. Isaac and rosbag can
+  provide `/scan`; the hardware LiDAR driver is still absent. A missing or
+  stale scan is ignored by Nav2 Humble, so `source_timeout` is **fail-open**;
+  it is not a sensor-health stop. See the offline chain test in
+  `docs/validation/offline_safety_chain_2026-10-13.md`.
 - `robot_bringup` rebuilt; see above.
 - `robot_bringup` selects a backend: `hardware`, `isaac`, or `rosbag`.
   `backend:=isaac` launches no adapter: Isaac's ROS 2 graph must publish and

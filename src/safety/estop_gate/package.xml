@@ -5,7 +5,7 @@
   <description>
     Latching software operator-stop gate for the JetAuto AMR. It passes
     velocity commands only when the e-stop is released and explicitly reset,
-    then hands them to nav2_collision_monitor for obstacle-zone limiting.
+    after nav2_collision_monitor has applied obstacle-zone limiting.
   </description>
   <maintainer email="nithish@example.com">Nithish</maintainer>
   <license>MIT</license>

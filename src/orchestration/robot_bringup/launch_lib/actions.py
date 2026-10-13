@@ -88,8 +88,8 @@ NODE_SPECS: dict = {
     #   /cmd_vel -> collision_monitor -> /cmd_vel/collision_limited
     #            -> estop_gate (operator stop) -> /cmd_vel/safety_limited -> driver
     #
-    # It has no source configured yet (no sensor driver exists), so it will run
-    # and gate nothing until drivers/ returns and /scan appears.
+    # /scan is configured as its source. If scans disappear, Humble's
+    # source_timeout ignores that source (fail-open); this is not a watchdog.
     "safety": [
         {
             "package": "estop_gate",
