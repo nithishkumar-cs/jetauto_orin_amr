@@ -8,6 +8,7 @@
 #
 # Chain:
 #   /cmd_vel --> collision_monitor --> /cmd_vel/collision_limited
+#            --> scan_health_gate --> /cmd_vel/scan_health_limited
 #            --> estop_gate (operator-stop latch) --> /cmd_vel/safety_limited
 #            --> driver
 #

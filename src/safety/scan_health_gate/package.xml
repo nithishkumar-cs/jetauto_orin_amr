@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>scan_health_gate</name>
+  <version>0.1.0</version>
+  <description>Fail-closed LiDAR scan freshness interlock for velocity commands.</description>
+  <maintainer email="nithish@example.com">Nithish</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>geometry_msgs</depend>
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

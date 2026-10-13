@@ -1,0 +1,11 @@
+# Software scan-freshness interlock. This is not safety-rated; its purpose is
+# to prevent Nav2 Humble's fail-open collision monitor from forwarding motion
+# when /scan is missing or stale. Keep the operator e-stop as the final gate.
+scan_health_gate:
+  ros__parameters:
+    cmd_vel_in_topic: "/cmd_vel/collision_limited"
+    cmd_vel_out_topic: "/cmd_vel/scan_health_limited"
+    scan_in_topic: "/scan"
+    scan_timeout_sec: 0.3
+    future_stamp_tolerance_sec: 0.1
+    stop_publish_rate_hz: 20.0

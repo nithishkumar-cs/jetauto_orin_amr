@@ -30,6 +30,7 @@ if(BUILD_TESTING)
   find_package(ament_cmake_pytest REQUIRED)
   ament_add_pytest_test(test_slam_mode test/test_slam_mode.py)
   ament_add_pytest_test(test_planner_mode test/test_planner_mode.py)
+  ament_add_pytest_test(test_safety_chain test/test_safety_chain.py)
 endif()
 
 ament_package()

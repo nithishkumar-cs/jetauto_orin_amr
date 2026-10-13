@@ -10,8 +10,8 @@
 5. Localization: `localization_odometry_fusion` configures the upstream
    `robot_localization` EKF; optional `localization_slam_mapping` configures
    upstream SLAM Toolbox for online 2D mapping.
-6. Safety and operations: `nav2_collision_monitor`, `estop_gate`, navigation,
-   and diagnostics.
+6. Safety and operations: `nav2_collision_monitor`, `scan_health_gate`,
+   `estop_gate`, navigation, and diagnostics.
 7. Measurement: `benchmarks`, `evaluation_tools`.
 
 The debug mode is intentionally 2D-first. It proves image capture, CUDA preprocessing, detector wiring, and health reporting with the robot hardware path. The profile and production modes expand the launched subsystem set through `system_modes.yaml`.
@@ -25,7 +25,8 @@ RGB/depth camera
                                                               +-> perception_fusion
 2D LiDAR -> /scan -> perception_lidar_clustering -> lidar tracker+
 
-/scan -> nav2_collision_monitor -> estop_gate -> base driver or simulator
+/scan -> nav2_collision_monitor -> scan_health_gate -> estop_gate
+     -> base driver or simulator
 
 /odom/wheel (+ /imu/data on hardware) -> robot_localization EKF
                                     -> /odometry/filtered

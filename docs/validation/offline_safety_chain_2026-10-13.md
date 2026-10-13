@@ -1,5 +1,11 @@
 # Offline software command-chain check — 2026-10-13
 
+Historical result from commit `6aa6e6f`. The later
+[scan-health interlock follow-up](offline_scan_health_interlock_2026-10-13.md)
+adds a separate fail-closed node and updates the integration script. To
+reproduce the failure described below, use the script at that historical
+commit; the current script tests the new four-node chain.
+
 ## Result
 
 The configured ROS 2 command chain works for fresh synthetic LiDAR data,

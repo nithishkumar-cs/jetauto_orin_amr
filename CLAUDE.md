@@ -31,7 +31,7 @@ current repository. For current measured milestones and remaining gates, use
 
 - `platform` — shared message contracts (`amr_interfaces`) + TF/calibration foundation. Source-agnostic; no algorithms. *(Dissolution pending — see Pending decisions.)*
 - `perception` — camera → detection → depth-projection → tracking → fusion → `/perception/fused_obstacles`.
-- `safety` — collision avoidance plus an operator stop. **Obstacle zones are `nav2_collision_monitor` (upstream), not our code**; `estop_gate` is the final latching software operator-stop, so Nav2 cannot override it. Chain: `/cmd_vel` → collision_monitor → `/cmd_vel/collision_limited` → e-stop latch → `/cmd_vel/safety_limited`.
+- `safety` — collision avoidance plus an operator stop. **Obstacle zones are `nav2_collision_monitor` (upstream), not our code**; `scan_health_gate` closes the Humble scan-loss gap; `estop_gate` is the final latching software operator-stop. Chain: `/cmd_vel` → collision monitor → `/cmd_vel/collision_limited` → scan-health gate → `/cmd_vel/scan_health_limited` → e-stop latch → `/cmd_vel/safety_limited`.
 - `localization` — SLAM / localization & mapping.
 - `navigation` — nav tasks + teleop relay.
 - `drivers` — real hardware IO. Consumes `/cmd_vel/safety_limited`, publishes `/odom/wheel`.
@@ -100,19 +100,27 @@ Use ROS Humble: `source /opt/ros/humble/setup.bash`.
   only**. The radial-zone policy that used to live here was deleted in favour of
   `nav2_collision_monitor`; the latch survives because collision_monitor has no e-stop input.
   A controller e-stop message latches it and a controller reset clears it.
-  `estop_gate_node` subscribes to `/cmd_vel/collision_limited`,
+  `estop_gate_node` subscribes to `/cmd_vel/scan_health_limited`,
   `/estop/engaged`, and `/estop/reset`.
   While latched it publishes zero velocity for each received command; otherwise it publishes commands
-  to `/cmd_vel/safety_limited` after collision_monitor publishes its result to
-  `/cmd_vel/collision_limited`; it is the final software command authority.
+  to `/cmd_vel/safety_limited` after scan-health limiting; it is the final
+  software command authority.
+- `scan_health_gate` — separate C++ scan-freshness interlock. It consumes
+  `/cmd_vel/collision_limited` and `/scan`, publishes
+  `/cmd_vel/scan_health_limited`, and emits zero at 20 Hz while scans have
+  never arrived or are stale/unusable. It checks both ROS header age and a
+  steady-clock receipt timeout; a fresh usable scan allows commands again.
+  This is not safety-rated and does not prove the collision monitor could
+  transform or process every scan. See
+  `docs/validation/offline_scan_health_interlock_2026-10-13.md`.
 - `collision_monitor` — **WIRED AND VERIFIED ACTIVE.** Config at
   `configs/safety/collision_monitor.yaml`, launched by bringup together with its
   lifecycle manager. Publishes `/cmd_vel/collision_limited`, `/safety/zone_stop`,
   `/safety/zone_slow`; consumes `/cmd_vel` and `/scan`. Isaac and rosbag can
   provide `/scan`; the hardware LiDAR driver is still absent. A missing or
-  stale scan is ignored by Nav2 Humble, so `source_timeout` is **fail-open**;
-  it is not a sensor-health stop. See the offline chain test in
-  `docs/validation/offline_safety_chain_2026-10-13.md`.
+  stale scan is ignored by Nav2 Humble, so its own `source_timeout` is
+  **fail-open**. The separate scan-health gate prevents nonzero commands
+  from reaching e-stop during tested missing/stale-scan cases.
 - `robot_bringup` rebuilt; see above.
 - `robot_bringup` selects a backend: `hardware`, `isaac`, or `rosbag`.
   `backend:=isaac` launches no adapter: Isaac's ROS 2 graph must publish and
