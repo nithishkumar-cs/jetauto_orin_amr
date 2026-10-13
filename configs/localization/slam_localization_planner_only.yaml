@@ -1,0 +1,8 @@
+# Planner-only Isaac/rosbag timing profile. Loaded after slam_localization.yaml.
+# SLAM Toolbox stamps map -> odom at the last scan stamp plus this offset.
+# A 1x geometry replay admitted 514/520 scans at Nav2's 0.2 s TF wait;
+# the baseline 0.2 s offset admitted 95/532. This does not reduce scan
+# matching latency or validate controlled motion. See the timing report.
+slam_toolbox:
+  ros__parameters:
+    transform_timeout: 0.8

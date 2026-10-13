@@ -8,6 +8,9 @@ The current project authority is
 [`jetauto_orin_amr_project_spec.md`](jetauto_orin_amr_project_spec.md). Treat it
 as the source of truth for structure and development order.
 
+Measured milestones, limitations, and evidence-backed résumé drafts are in
+the [engineering log](docs/engineering_log.md).
+
 ## Workspace Layout
 
 ```text
@@ -20,11 +23,11 @@ jetauto_orin_amr/
   rosbag/                   Playback helpers kept outside robot bring-up
   datasets/                 Local dataset workspace, not for large committed data
   src/
-    robot_bringup/          System orchestration entrypoint
+    orchestration/robot_bringup/  System orchestration entrypoint
     platform/               Base interface, sensors, TF, shared interfaces
     perception/             CUDA common, preprocessing, inference, geometry, fusion, tracking
     localization/           Localization, mapping, odometry fusion
-    navigation/             Navigation tasks and teleop
+    navigation/             Placeholder for custom tasks; Nav2 is upstream
     safety/                 Safety layer
     tools/                  Diagnostics, benchmarks, evaluation, bag and calibration tools
   tests/                    Cross-package system, integration, replay, and performance tests

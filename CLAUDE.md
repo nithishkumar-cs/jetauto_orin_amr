@@ -5,7 +5,11 @@ On 2026-06-21 it was deliberately reset to a clean slate to clear old-version ju
 and confusion. We now rebuild nodes and topics one by one against the design
 decisions below.
 
-## Current state
+## Historical reset snapshot (2026-06-21)
+
+The following bullets describe the original clean-slate reset, **not** the
+current repository. For current measured milestones and remaining gates, use
+`docs/engineering_log.md` and the linked validation reports.
 
 - **Reset done.** Every ROS package under `src/` was nuked **except `robot_bringup`**.
 - The layer folders are **kept but empty**: `bridges drivers localization navigation
@@ -51,10 +55,11 @@ decisions below.
 - **Package names must stand alone.** ROS package names are a flat global namespace, so the layer folder provides no scoping: `src/perception/detection_depth_projection/` holds a package *named* `perception_detection_depth_projection`. Do not name a package after its folder alone (`safety`, `geometry`) — and avoid stutter (`safety/safety_layer`), which is why the operator-stop component is `estop_gate` and the orchestrator layer is `orchestration`, not `bringup`.
 - **Launch files live in `<pkg>/launch/`.** `launch_lib/` installs as a *sibling*, so `robot_stack.launch.py` puts its parent directory on `sys.path`, not its own.
 
-## robot_bringup (REBUILT — launches clean, launches nothing)
+## robot_bringup (historical July rebuild; subsequently extended)
 
-Rewritten 2026-07-26. It builds, launches in all three modes, and enforces the
-tier rules. It starts **no nodes**, because no package ships one yet.
+Rewritten 2026-07-26. The description below is the initial rebuild state;
+the current bringup now launches rebuilt components and upstream SLAM/Nav2
+as described in `src/orchestration/robot_bringup/README.md`.
 
 - **Done.** Dangling package references removed (`package.xml` exec_depends
   trimmed to what exists; `NODE_SPECS` in `actions.py` is the registry to grow).
@@ -223,8 +228,15 @@ filter events: checked-in 0.2 s wait passed 95/532 scans, while a temporary
 does not make the default costmap safe for motion. On the distinct geometry,
 0.583 m injected wheel-TF translation drift plus 0.08 rad yaw drift left
 saved-map localization at 0.028 m median / 0.122 m p95 position error.
-See `docs/validation/isaac_live_start_planner_tf_2026-10-13.md`; no
-production timing or motion setting was changed.
+See `docs/validation/isaac_live_start_planner_tf_2026-10-13.md`; at that
+stage no timing or motion setting was changed.
+The subsequent planner-only timing profile is documented in
+`docs/validation/isaac_localizer_tf_timing_2026-10-13.md`. It changes only
+the Isaac/rosbag planner-only SLAM Toolbox `transform_timeout` to 0.8 s;
+Nav2's costmap wait stays 0.2 s and no motion control is enabled. Its clean
+replay passed 514/520 received costmap scans; a synthetic obstacle marked
+and cleared, and a separate smooth odometry-drift replay passed 514/522.
+This future-dates map correction rather than making scan matching faster.
 Record `/cmd_vel/safety_limited` in a future live run to verify
 the command-to-motion path. The hardware `base_driver` remains to be rebuilt
 under `src/drivers/`.

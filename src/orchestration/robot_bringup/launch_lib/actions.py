@@ -286,6 +286,16 @@ def build_actions(resolved: ResolvedConfig) -> list:
 
     if resolved.slam_mode in ("mapping", "localization"):
         spec = SLAM_MAPPING_SPEC if resolved.slam_mode == "mapping" else SLAM_LOCALIZATION_SPEC
+        if resolved.slam_mode == "localization" and resolved.navigation_mode == "planner_only":
+            # Only the simulation planner profile uses the validated TF offset.
+            # Keep ordinary and future hardware localization on their base config.
+            spec = {
+                **spec,
+                "parameters": [
+                    *spec["parameters"],
+                    str(project_config("localization", "slam_localization_planner_only.yaml")),
+                ],
+            }
         required = [spec["package"], *spec.get("required_packages", [])]
         if resolved.backend == "hardware":
             required.extend(("localization_odometry_fusion", "robot_localization"))

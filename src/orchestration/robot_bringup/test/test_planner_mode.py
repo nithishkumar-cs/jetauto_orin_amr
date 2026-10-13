@@ -46,6 +46,18 @@ def test_planner_scan_source_accepts_lidar_height():
     assert scan["clearing"] is True
 
 
+def test_planner_localizer_tf_override_is_scoped():
+    project_root = Path(__file__).resolve().parents[4]
+    base = yaml.safe_load(
+        (project_root / "configs/localization/slam_localization.yaml").read_text()
+    )
+    override = yaml.safe_load(
+        (project_root / "configs/localization/slam_localization_planner_only.yaml").read_text()
+    )
+    assert base["slam_toolbox"]["ros__parameters"]["transform_timeout"] == 0.2
+    assert override["slam_toolbox"]["ros__parameters"]["transform_timeout"] == 0.8
+
+
 @pytest.mark.parametrize("backend", ["isaac", "rosbag"])
 def test_planner_only_allows_simulation_backends(backend):
     enabled = resolved("planner_only").enabled
@@ -78,7 +90,9 @@ def test_planner_only_launches_only_localizer_planner_and_manager(monkeypatch, t
     calls = []
 
     def capture(spec, log_level, use_sim_time, backend, extra_parameters=None):
-        calls.append((spec["executable"], use_sim_time, extra_parameters))
+        calls.append(
+            (spec["executable"], use_sim_time, extra_parameters, spec.get("parameters", []))
+        )
         return object()
 
     monkeypatch.setattr(actions, "_node_action", capture)
@@ -91,6 +105,7 @@ def test_planner_only_launches_only_localizer_planner_and_manager(monkeypatch, t
     ]
     assert all(call[1] for call in calls)
     assert all(call[0] not in ("controller_server", "bt_navigator") for call in calls)
+    assert calls[0][3][-1].endswith("slam_localization_planner_only.yaml")
 
 
 def test_navigation_mode_off_does_not_launch_planner(monkeypatch, tmp_path):
@@ -99,12 +114,13 @@ def test_navigation_mode_off_does_not_launch_planner(monkeypatch, tmp_path):
     calls = []
 
     def capture(spec, log_level, use_sim_time, backend, extra_parameters=None):
-        calls.append(spec["executable"])
+        calls.append((spec["executable"], spec.get("parameters", [])))
         return object()
 
     monkeypatch.setattr(actions, "_node_action", capture)
     actions.build_actions(resolved("off"))
-    assert calls == ["localization_slam_toolbox_node"]
+    assert [call[0] for call in calls] == ["localization_slam_toolbox_node"]
+    assert calls[0][1][-1].endswith("slam_localization.yaml")
 
 
 def test_missing_planner_package_does_not_start_planner_manager(monkeypatch, tmp_path):

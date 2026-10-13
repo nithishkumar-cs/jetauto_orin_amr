@@ -112,3 +112,10 @@ The [1× live-start and scan-filter follow-up](../../../docs/validation/isaac_li
 shows that the checked-in 0.2 s global-costmap TF wait passed only 95 of 532
 received scans in that replay. Path success is not motion readiness; this
 timing gap must be resolved before using the costmap for controlled driving.
+For planner-only Isaac/rosbag validation, bringup now loads an additional
+localizer parameter file setting SLAM Toolbox `transform_timeout` to 0.8 s;
+normal localization retains 0.2 s. The
+[timing report](../../../docs/validation/isaac_localizer_tf_timing_2026-10-13.md)
+records the scan-admission, freshness, obstacle, and synthetic-drift checks.
+This future-dates the map correction; it does not make scan matching faster
+or authorize a controller.
