@@ -318,11 +318,14 @@ TEST(DetectorNodeMetricsTest, PublishesWallTimeAndCountOnlyWhenRequested)
   ASSERT_EQ(metrics.front().status.size(), 1U);
   const auto & status = metrics.front().status.front();
   EXPECT_EQ(status.name, "perception_detector/metrics");
-  ASSERT_EQ(status.values.size(), 2U);
+  ASSERT_EQ(status.values.size(), 4U);
   EXPECT_EQ(status.values[0].key, "detect_wall_ms");
   EXPECT_GE(std::stod(status.values[0].value), 0.0);
   EXPECT_EQ(status.values[1].key, "detection_count");
   EXPECT_EQ(status.values[1].value, "0");
+  EXPECT_EQ(status.values[2].key, "input_age_ms");
+  EXPECT_EQ(status.values[3].key, "dropped_total");
+  EXPECT_EQ(status.values[3].value, "0");
 }
 
 TEST(DetectorNodeProductionConstructionTest, RejectsAnUnregisteredBackend)

@@ -7,6 +7,7 @@
 #include "message_filters/sync_policies/approximate_time.h"
 #include "message_filters/synchronizer.h"
 #include "perception_detection_depth_projection/depth_projector.hpp"
+#include "perception_metrics/metrics_reporter.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/camera_info.hpp"
 #include "sensor_msgs/msg/image.hpp"
@@ -32,6 +33,7 @@ private:
     const sensor_msgs::msg::CameraInfo::ConstSharedPtr & camera_info);
 
   DepthProjector projector_;
+  perception_metrics::MetricsReporter metrics_;
   rclcpp::Publisher<vision_msgs::msg::Detection3DArray>::SharedPtr publisher_;
   message_filters::Subscriber<vision_msgs::msg::Detection2DArray> detections_subscription_;
   message_filters::Subscriber<sensor_msgs::msg::Image> depth_subscription_;

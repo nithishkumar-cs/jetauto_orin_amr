@@ -11,6 +11,7 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(perception_metrics REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 
@@ -24,7 +25,7 @@ target_include_directories(lidar_clustering_node_lib PUBLIC
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
   "$<INSTALL_INTERFACE:include>")
 target_link_libraries(lidar_clustering_node_lib perception_lidar_clustering_core)
-ament_target_dependencies(lidar_clustering_node_lib rclcpp sensor_msgs vision_msgs)
+ament_target_dependencies(lidar_clustering_node_lib rclcpp perception_metrics sensor_msgs vision_msgs)
 
 add_executable(lidar_clustering_node src/main.cpp)
 target_link_libraries(lidar_clustering_node lidar_clustering_node_lib)

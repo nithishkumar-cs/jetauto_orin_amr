@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "perception_lidar_clustering/laser_scan_clusterer.hpp"
+#include "perception_metrics/metrics_reporter.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "vision_msgs/msg/detection3_d_array.hpp"
@@ -20,6 +21,7 @@ private:
   void on_scan(const sensor_msgs::msg::LaserScan::ConstSharedPtr & message);
 
   LidarClusterer clusterer_;
+  perception_metrics::MetricsReporter metrics_;
   rclcpp::Publisher<vision_msgs::msg::Detection3DArray>::SharedPtr clusters_publisher_;
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr subscription_;
 };

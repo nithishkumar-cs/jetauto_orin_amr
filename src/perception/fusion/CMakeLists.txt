@@ -14,6 +14,7 @@ find_package(amr_interfaces REQUIRED)
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(geometry_msgs REQUIRED)
 find_package(message_filters REQUIRED)
+find_package(perception_metrics REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
@@ -30,7 +31,7 @@ target_include_directories(perception_fusion_node_lib PUBLIC
   "$<INSTALL_INTERFACE:include>")
 target_link_libraries(perception_fusion_node_lib perception_fusion_core)
 ament_target_dependencies(perception_fusion_node_lib
-  amr_interfaces geometry_msgs message_filters rclcpp tf2 tf2_geometry_msgs)
+  amr_interfaces geometry_msgs message_filters perception_metrics rclcpp tf2 tf2_geometry_msgs)
 
 add_executable(fusion_node src/main.cpp)
 target_link_libraries(fusion_node perception_fusion_node_lib)

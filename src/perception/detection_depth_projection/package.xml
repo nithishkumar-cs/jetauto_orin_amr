@@ -11,6 +11,7 @@
   <depend>geometry_msgs</depend>
   <depend>message_filters</depend>
   <depend>rclcpp</depend>
+  <depend>perception_metrics</depend>
   <depend>sensor_msgs</depend>
   <depend>vision_msgs</depend>
 

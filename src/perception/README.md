@@ -18,4 +18,7 @@ the architecture a readable shape; the package names remain globally unique.
   project's authoritative `/perception/fused_obstacles`
   `TrackedObstacleArray` contract. **Built.**
 
+- `metrics/` → `perception_metrics`: header-only optional `/diagnostics`
+  reporter shared by the nodes above. **Built.**
+
 Preprocessing stays inside the detector backend, which owns its input tensors.

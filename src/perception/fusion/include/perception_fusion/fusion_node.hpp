@@ -9,6 +9,7 @@
 #include "message_filters/sync_policies/approximate_time.h"
 #include "message_filters/synchronizer.h"
 #include "perception_fusion/multi_sensor_fusion.hpp"
+#include "perception_metrics/metrics_reporter.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 namespace perception_fusion
@@ -28,6 +29,7 @@ private:
     const amr_interfaces::msg::TrackedObstacleArray::ConstSharedPtr & lidar_tracks);
 
   MultiSensorFusion fusion_;
+  perception_metrics::MetricsReporter metrics_;
   std::string fusion_frame_;
   double unobserved_state_variance_{1e6};
   rclcpp::Publisher<amr_interfaces::msg::TrackedObstacleArray>::SharedPtr publisher_;

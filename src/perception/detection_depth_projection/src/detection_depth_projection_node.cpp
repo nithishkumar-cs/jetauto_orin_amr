@@ -37,7 +37,8 @@ DetectionDepthProjectionNode::DetectionDepthProjectionNode(const rclcpp::NodeOpt
     declare_parameter<double>("min_depth_m", 0.15),
     declare_parameter<double>("max_depth_m", 8.0),
     static_cast<std::size_t>(declare_parameter<int>("min_valid_samples", 5)),
-  })
+  }),
+  metrics_(*this)
 {
   const auto detections_in_topic =
     declare_parameter<std::string>("detections_in_topic", "/perception/detections_2d");
@@ -83,6 +84,7 @@ void DetectionDepthProjectionNode::on_synchronized_input(
     RCLCPP_WARN_THROTTLE(
       get_logger(), *get_clock(), 5000,
       "Detections, aligned depth, and CameraInfo must use one frame and image size.");
+    metrics_.note_drop();
     return;
   }
 
@@ -91,9 +93,11 @@ void DetectionDepthProjectionNode::on_synchronized_input(
     RCLCPP_WARN_THROTTLE(
       get_logger(), *get_clock(), 5000,
       "Depth image must have a valid buffer and use 16UC1 (millimetres) or 32FC1 (metres).");
+    metrics_.note_drop();
     return;
   }
 
+  const auto start = metrics_.start();
   const CameraIntrinsics intrinsics{
     camera_info->k[0], camera_info->k[4], camera_info->k[2], camera_info->k[5]};
   vision_msgs::msg::Detection3DArray output;
@@ -133,7 +137,13 @@ void DetectionDepthProjectionNode::on_synchronized_input(
     projected_detection.bbox.size.z = 0.0;
     output.detections.push_back(projected_detection);
   }
+  const auto projected_count = output.detections.size();
   publisher_->publish(output);
+  metrics_.publish(
+    detections->header.stamp,
+    {{"process_wall_ms", metrics_.elapsed_ms(start)},
+     {"input_detections", static_cast<double>(detections->detections.size())},
+     {"projected_detections", static_cast<double>(projected_count)}});
 }
 
 }  // namespace perception_detection_depth_projection

@@ -13,6 +13,7 @@ find_package(ament_cmake REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(message_filters REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(perception_metrics REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 
@@ -27,7 +28,7 @@ target_include_directories(detection_depth_projection_node_lib PUBLIC
   "$<INSTALL_INTERFACE:include>")
 target_link_libraries(detection_depth_projection_node_lib perception_detection_depth_projection_core)
 ament_target_dependencies(detection_depth_projection_node_lib
-  geometry_msgs message_filters rclcpp sensor_msgs vision_msgs)
+  geometry_msgs message_filters perception_metrics rclcpp sensor_msgs vision_msgs)
 
 add_executable(detection_depth_projection_node src/main.cpp)
 target_link_libraries(detection_depth_projection_node detection_depth_projection_node_lib)

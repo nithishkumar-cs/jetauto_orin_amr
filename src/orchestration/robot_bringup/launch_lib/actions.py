@@ -20,6 +20,18 @@ from launch_lib.paths import package_available, package_file, project_config, re
 #:         "package": "perception_inference",
 #:         "executable": "detector_node",
 #:     },
+# Packages whose nodes declare `export_metrics` and publish per-cycle
+# `/diagnostics` statuses (perception_metrics::MetricsReporter).
+METRICS_PACKAGES = frozenset(
+    {
+        "perception_detector",
+        "perception_detection_depth_projection",
+        "perception_lidar_clustering",
+        "perception_tracking",
+        "perception_fusion",
+    }
+)
+
 NODE_SPECS: dict = {
     "detector": [
         {
@@ -290,11 +302,14 @@ def build_actions(resolved: ResolvedConfig) -> list:
 
         for spec in specs:
             extra_parameters = None
-            if spec["package"] == "perception_detector":
+            if spec["package"] in METRICS_PACKAGES:
                 extra_parameters = {
-                    "enable_cuda_timing": resolved.runtime_behaviour.get("enable_cuda_timing", False),
                     "export_metrics": resolved.runtime_behaviour.get("export_metrics", False),
                 }
+            if spec["package"] == "perception_detector":
+                extra_parameters["enable_cuda_timing"] = resolved.runtime_behaviour.get(
+                    "enable_cuda_timing", False
+                )
             actions.append(
                 _node_action(
                     spec, resolved.log_level, resolved.backend == "isaac", resolved.backend,

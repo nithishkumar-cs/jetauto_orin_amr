@@ -95,6 +95,7 @@ void set_unknown_twist_covariance(
 TrackingNode::TrackingNode(const rclcpp::NodeOptions & options)
 : Node("tracking", options),
   tracker_(),
+  metrics_(*this),
   tf_buffer_(get_clock()),
   tf_listener_(tf_buffer_, this, true)
 {
@@ -159,9 +160,11 @@ void TrackingNode::on_observations(
     RCLCPP_WARN_THROTTLE(
       get_logger(), *get_clock(), 5000,
       "Observation frame_id is empty; detections were not tracked.");
+    metrics_.note_drop();
     return;
   }
 
+  const auto start = metrics_.start();
   const auto stamp = rclcpp::Time(message->header.stamp);
   const auto timeout = rclcpp::Duration::from_seconds(transform_timeout_s_);
   geometry_msgs::msg::TransformStamped observation_to_tracking;
@@ -173,6 +176,7 @@ void TrackingNode::on_observations(
   } catch (const tf2::TransformException & error) {
     RCLCPP_WARN_THROTTLE(
       get_logger(), *get_clock(), 5000, "Tracking transform unavailable: %s", error.what());
+    metrics_.note_drop();
     return;
   }
 
@@ -222,6 +226,7 @@ void TrackingNode::on_observations(
   } catch (const std::invalid_argument & error) {
     RCLCPP_WARN_THROTTLE(
       get_logger(), *get_clock(), 5000, "Tracking update rejected: %s", error.what());
+    metrics_.note_drop();
     return;
   }
 
@@ -281,6 +286,12 @@ void TrackingNode::on_observations(
     obstacle.source = source_;
   }
   tracks_publisher_->publish(output);
+  metrics_.publish(
+    message->header.stamp,
+    {{"process_wall_ms", metrics_.elapsed_ms(start)},
+     {"observation_count", static_cast<double>(message->detections.size())},
+     {"rejected_count", static_cast<double>(rejected_count)},
+     {"track_count", static_cast<double>(output.obstacles.size())}});
 }
 
 }  // namespace perception_tracking

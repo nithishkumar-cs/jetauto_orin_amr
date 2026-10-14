@@ -79,7 +79,8 @@ def test_profile_instrumentation_reaches_detector(monkeypatch):
     monkeypatch.setattr(actions, "package_available", lambda _package: True)
     monkeypatch.setattr(actions, "_missing_required_files", lambda _spec: [])
     enabled = {name: False for name in TIERS}
-    enabled["detector"] = True
+    for name in ("detector", "geometry", "lidar_clustering", "tracking", "fusion"):
+        enabled[name] = True
     resolved = config.ResolvedConfig(
         args={}, instrumentation_mode="profile", backend="isaac", slam_mode="off",
         navigation_mode="off", pose_graph_prefix="", map_start_pose=None,
@@ -91,6 +92,11 @@ def test_profile_instrumentation_reaches_detector(monkeypatch):
     detector = next(call for call in calls if call["package"] == "perception_detector")
     assert detector["parameters"][-1]["enable_cuda_timing"] is True
     assert detector["parameters"][-1]["export_metrics"] is True
+    exporting = {call["package"] for call in calls if call["parameters"][-1].get("export_metrics")}
+    assert exporting == actions.METRICS_PACKAGES
+    for call in calls:
+        if call["package"] != "perception_detector":
+            assert "enable_cuda_timing" not in call["parameters"][-1]
 
 
 def test_unvalidated_variant_combinations_are_rejected():

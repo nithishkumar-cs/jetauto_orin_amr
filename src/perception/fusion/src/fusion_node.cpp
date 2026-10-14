@@ -85,7 +85,7 @@ void set_unknown_twist_covariance(
 
 }  // namespace
 
-FusionNode::FusionNode(const rclcpp::NodeOptions & options) : Node("fusion", options), fusion_()
+FusionNode::FusionNode(const rclcpp::NodeOptions & options) : Node("fusion", options), fusion_(), metrics_(*this)
 {
   auto config = FusionConfig{};
   config.cross_sensor_association_distance_m = declare_parameter<double>(
@@ -140,9 +140,11 @@ void FusionNode::on_synchronized_tracks(
       get_logger(), *get_clock(), 5000,
       "Camera and LiDAR tracks must both use the configured fusion frame '%s'.",
       fusion_frame_.c_str());
+    metrics_.note_drop();
     return;
   }
 
+  const auto start = metrics_.start();
   std::vector<TrackObservation> camera_observations;
   camera_observations.reserve(camera_tracks->obstacles.size());
   std::vector<TrackObservation> lidar_observations;
@@ -178,6 +180,7 @@ void FusionNode::on_synchronized_tracks(
   } catch (const std::invalid_argument & error) {
     RCLCPP_WARN_THROTTLE(
       get_logger(), *get_clock(), 5000, "Fusion update rejected: %s", error.what());
+    metrics_.note_drop();
     return;
   }
 
@@ -215,6 +218,14 @@ void FusionNode::on_synchronized_tracks(
     obstacle.source = fused.source;
   }
   publisher_->publish(output);
+  metrics_.publish(
+    output.header.stamp,
+    {{"process_wall_ms", metrics_.elapsed_ms(start)},
+     {"camera_tracks", static_cast<double>(camera_observations.size())},
+     {"lidar_tracks", static_cast<double>(lidar_observations.size())},
+     {"fused_count", static_cast<double>(output.obstacles.size())},
+     {"rejected_count", static_cast<double>(rejected_count)},
+     {"sync_skew_ms", std::abs((camera_stamp - lidar_stamp).seconds()) * 1e3}});
 }
 
 }  // namespace perception_fusion

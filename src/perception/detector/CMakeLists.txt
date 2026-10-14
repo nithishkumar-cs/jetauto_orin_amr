@@ -15,6 +15,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
+find_package(perception_metrics REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 
@@ -97,7 +98,7 @@ target_include_directories(perception_detector_node_lib PUBLIC
 target_link_libraries(perception_detector_node_lib
   perception_detector_core
   perception_detector_backend_factory)
-ament_target_dependencies(perception_detector_node_lib rclcpp diagnostic_msgs sensor_msgs vision_msgs)
+ament_target_dependencies(perception_detector_node_lib rclcpp diagnostic_msgs perception_metrics sensor_msgs vision_msgs)
 
 add_executable(detector_node src/main.cpp)
 target_link_libraries(detector_node perception_detector_node_lib)

@@ -21,7 +21,8 @@ Primary launch axes:
 Build with `./scripts/dev_helpers/build_mode.sh <mode>` before launching the
 same instrumentation mode. This selects `Debug`, `RelWithDebInfo`, or `Release`
 respectively; C/C++ assertions follow that build type. Runtime profile mode
-enables detector CUDA event timing and publishes per-frame detector metrics on
+enables detector CUDA event timing and makes the detector, depth projection,
+LiDAR clustering, both trackers, and fusion publish per-cycle metrics on
 `/diagnostics`. Debug and production omit that instrumentation.
 
 `configs/runtime_modes/system_modes.yaml` supplies shared toggle defaults.

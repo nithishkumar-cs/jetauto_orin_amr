@@ -8,7 +8,7 @@ namespace perception_lidar_clustering
 {
 
 LidarClusteringNode::LidarClusteringNode(const rclcpp::NodeOptions & options)
-: Node("lidar_clustering", options), clusterer_()
+: Node("lidar_clustering", options), clusterer_(), metrics_(*this)
 {
   auto config = LidarClustererConfig{};
   config.max_adjacent_point_distance_m = declare_parameter<double>(
@@ -42,6 +42,7 @@ void LidarClusteringNode::on_scan(const sensor_msgs::msg::LaserScan::ConstShared
   if (message->header.frame_id.empty()) {
     RCLCPP_WARN_THROTTLE(
       get_logger(), *get_clock(), 5000, "LaserScan frame_id is empty; scan was not clustered.");
+    metrics_.note_drop();
     return;
   }
 
@@ -52,9 +53,11 @@ void LidarClusteringNode::on_scan(const sensor_msgs::msg::LaserScan::ConstShared
     RCLCPP_WARN_THROTTLE(
       get_logger(), *get_clock(), 5000,
       "LaserScan metadata or range storage is invalid; scan was not clustered.");
+    metrics_.note_drop();
     return;
   }
 
+  const auto start = metrics_.start();
   vision_msgs::msg::Detection3DArray output;
   output.header = message->header;
   const auto clusters = clusterer_.cluster(*scan);
@@ -71,6 +74,11 @@ void LidarClusteringNode::on_scan(const sensor_msgs::msg::LaserScan::ConstShared
     detection.bbox.size.z = 0.0;
   }
   clusters_publisher_->publish(output);
+  metrics_.publish(
+    message->header.stamp,
+    {{"process_wall_ms", metrics_.elapsed_ms(start)},
+     {"scan_points", static_cast<double>(message->ranges.size())},
+     {"cluster_count", static_cast<double>(clusters.size())}});
 }
 
 }  // namespace perception_lidar_clustering

@@ -13,6 +13,7 @@ find_package(ament_cmake REQUIRED)
 find_package(amr_interfaces REQUIRED)
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(geometry_msgs REQUIRED)
+find_package(perception_metrics REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
@@ -31,7 +32,7 @@ target_include_directories(perception_tracking_node_lib PUBLIC
   "$<INSTALL_INTERFACE:include>")
 target_link_libraries(perception_tracking_node_lib perception_tracking_core)
 ament_target_dependencies(perception_tracking_node_lib
-  amr_interfaces geometry_msgs rclcpp tf2 tf2_geometry_msgs tf2_ros vision_msgs)
+  amr_interfaces geometry_msgs perception_metrics rclcpp tf2 tf2_geometry_msgs tf2_ros vision_msgs)
 
 add_executable(tracking_node src/main.cpp)
 target_link_libraries(tracking_node perception_tracking_node_lib)

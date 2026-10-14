@@ -5,6 +5,7 @@
 #include <string>
 
 #include "amr_interfaces/msg/tracked_obstacle_array.hpp"
+#include "perception_metrics/metrics_reporter.hpp"
 #include "perception_tracking/multi_object_tracker.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "tf2_ros/buffer.h"
@@ -23,6 +24,7 @@ private:
   void on_observations(const vision_msgs::msg::Detection3DArray::ConstSharedPtr & message);
 
   MultiObjectTracker tracker_;
+  perception_metrics::MetricsReporter metrics_;
   std::string source_;
   std::string tracking_frame_;
   std::string output_frame_;

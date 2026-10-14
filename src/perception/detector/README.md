@@ -23,8 +23,8 @@ parameter parsing.
 
 Bringup profile mode enables `enable_cuda_timing` and `export_metrics` on this
 node. Each successful image then publishes a `perception_detector/metrics`
-status on `/diagnostics` with `detect_wall_ms`, `detection_count`, and
-`cuda_inference_ms`. The CUDA value measures TensorRT execution on its stream;
+status on `/diagnostics` with `detect_wall_ms`, `detection_count`,
+`cuda_inference_ms`, `input_age_ms`, and `dropped_total`. The CUDA value measures TensorRT execution on its stream;
 the wall value covers preprocessing, inference, output download, and
 postprocessing. CUDA events and metric publication are absent in production.
 

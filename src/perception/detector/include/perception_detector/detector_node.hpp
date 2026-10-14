@@ -3,8 +3,8 @@
 
 #include <memory>
 
-#include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "perception_detector/detector_backend.hpp"
+#include "perception_metrics/metrics_reporter.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/image.hpp"
 #include "vision_msgs/msg/detection2_d_array.hpp"
@@ -32,7 +32,7 @@ private:
   std::unique_ptr<DetectorBackend> backend_;
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_subscription_;
   rclcpp::Publisher<vision_msgs::msg::Detection2DArray>::SharedPtr detections_publisher_;
-  rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr metrics_publisher_;
+  perception_metrics::MetricsReporter metrics_;
 };
 
 }  // namespace perception_detector
