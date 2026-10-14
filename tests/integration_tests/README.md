@@ -59,3 +59,29 @@ holds zero velocity, without sending a goal.
 **It latches the software e-stop on exit by design.** Publish `/estop/reset`
 before the next motion run. Results are in
 `docs/validation/isaac_follow_path_drive_2026-10-13.md`.
+
+## Collision-monitor zone measurement
+
+`measure_collision_zones.py` drives a hand-built straight path at a real
+obstacle to find where the monitor's stop and slowdown squares actually fire:
+
+```bash
+python3 tests/integration_tests/measure_collision_zones.py \
+    --isaac-simulation-only --survey-only
+python3 tests/integration_tests/measure_collision_zones.py \
+    --isaac-simulation-only --distance-m 1.80 --travel-cap-m 1.55 --abort-range-m 0.45
+```
+
+The path is built locally rather than planned because the global planner routes
+around obstacles and cannot produce this approach. `--survey-only` reports zone
+occupancy and nearest returns without moving. During the drive the script
+transforms every scan return into `base_link`, counts points inside the
+configured squares, and compares `/cmd_vel` against
+`/cmd_vel/collision_limited` to identify which layer stopped the base.
+
+A travel cap and an abort on measured obstacle proximity both guard the run and
+are checked every scan; either engages the e-stop. Set them so the proximity
+abort binds first, otherwise dead reckoning can end the run before the monitor
+acts. It refuses to start if the stop zone is already occupied. Like the
+FollowPath runner, **it latches the e-stop on exit**. Results are in
+`docs/validation/isaac_collision_zone_measurement_2026-10-13.md`.

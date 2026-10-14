@@ -22,9 +22,18 @@
 # deliberately surround the robot on all sides rather than forming a forward
 # corridor — it can strafe and reverse into things.
 #
-# UNVALIDATED: these numbers were never measured against real stopping distance.
-# Before trusting them, measure actual stopping distance at max speed and set
-# the stop zone larger than that, with margin.
+# Measured in Isaac on 2026-10-13 against a moving base: both zones fire at
+# this geometry and the throttle is exactly 0.35. That was 0.10 m/s in a
+# simulator, so it validates the wiring, NOT these sizes. STILL UNVALIDATED
+# for hardware: measure actual stopping distance at max speed and set the stop
+# zone larger than that, with margin.
+# Two consequences of the stop action, both measured:
+#   - it has no reverse exemption, so a robot stopped with an obstacle in the
+#     stop zone cannot drive itself out through this chain;
+#   - with stop_pub_timeout below, the monitor publishes NOTHING 2 s after the
+#     last command rather than a continuous zero stream, so the driver's own
+#     command watchdog is what keeps the base stopped.
+# See docs/validation/isaac_collision_zone_measurement_2026-10-13.md.
 
 # collision_monitor is a nav2 LIFECYCLE node. Started on its own it logs
 # "Waiting on external lifecycle transitions to activate" and then does nothing

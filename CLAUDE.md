@@ -283,10 +283,20 @@ The 1× Jetson replay through that bringup mode matched the earlier 158-pose
 localization result; see
 `docs/validation/isaac_bringup_localization_2026-09-30.md`.
 
-**Unvalidated:** the zone sizes in `collision_monitor.yaml` (stop 0.55 m, slow
-1.25 m, 35% throttle) were carried over from the old radial design and have
-never been measured against real stopping distance. Measure it at max speed and
-set the stop zone larger, with margin, before trusting them. The LiDAR
+**Partly validated:** the zones in `collision_monitor.yaml` (stop 0.55 m, slow
+1.25 m, 35% throttle) were measured against a moving simulated base on
+2026-10-13. Both trigger at their configured geometry — slowdown at 1.288 m
+nearest return at an exact 0.350 ratio, stop at 0.619 m — and the monitor, not
+the controller, is what stops the base. **The original gate is still open:**
+that was 0.10 m/s in Isaac, and the 7.4 mm of post-trigger travel is a
+near-massless simulator response, not braking. Still measure real stopping
+distance at max speed on hardware and size the stop zone from that, with
+margin. Two findings came out of it: the stop action has no reverse exemption,
+so a robot stopped with an obstacle in its stop zone **cannot drive itself
+out** (recovery path undecided); and `stop_pub_timeout: 2.0` makes the monitor
+publish *nothing* 2 s after the last command, so an actuator-side watchdog is
+**mandatory** in the unwritten `base_driver`, not optional. See
+`docs/validation/isaac_collision_zone_measurement_2026-10-13.md`. The LiDAR
 clustering defaults (0.20 m adjacent-point gap, three-point minimum) and all
 tracking and fusion timing/noise/association/expiry thresholds are also
 starting values only; tune them against representative Isaac and recorded
