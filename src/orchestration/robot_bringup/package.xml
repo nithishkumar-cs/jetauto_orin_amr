@@ -23,6 +23,7 @@
   <exec_depend>nav2_regulated_pure_pursuit_controller</exec_depend>
   <exec_depend>estop_gate</exec_depend>
   <exec_depend>scan_health_gate</exec_depend>
+  <exec_depend>stop_zone_recovery</exec_depend>
   <exec_depend>localization_odometry_fusion</exec_depend>
   <exec_depend>localization_slam_mapping</exec_depend>
   <exec_depend>slam_toolbox</exec_depend>

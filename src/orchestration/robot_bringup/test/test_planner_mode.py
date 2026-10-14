@@ -215,6 +215,7 @@ def test_follow_path_launch_is_guarded_and_ends_at_safety_topic(monkeypatch, tmp
     monkeypatch.setattr(actions, "_node_action", capture)
     actions.build_actions(follow_path_resolved())
     assert [call[0] for call in calls] == [
+        "stop_zone_recovery_node",
         "scan_health_gate_node",
         "estop_gate_node",
         "collision_monitor",

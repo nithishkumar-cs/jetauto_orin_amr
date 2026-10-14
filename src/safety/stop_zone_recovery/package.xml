@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>stop_zone_recovery</name>
+  <version>0.1.0</version>
+  <description>Bounded reverse-only escape from a collision-monitor stop zone, gated on a clear rear box.</description>
+  <maintainer email="nithish@example.com">Nithish</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>geometry_msgs</depend>
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>tf2_ros</depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

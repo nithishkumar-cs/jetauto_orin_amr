@@ -3,7 +3,7 @@
 # stale, or not transformable through odom. Keep the operator e-stop last.
 scan_health_gate:
   ros__parameters:
-    cmd_vel_in_topic: "/cmd_vel/collision_limited"
+    cmd_vel_in_topic: "/cmd_vel/recovery_limited"
     cmd_vel_out_topic: "/cmd_vel/scan_health_limited"
     scan_in_topic: "/scan"
     base_frame_id: "base_link"

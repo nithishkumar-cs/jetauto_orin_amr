@@ -1,0 +1,20 @@
+# Bounded reverse-only escape from a collision_monitor stop zone. Not safety-rated.
+# Only a pure reverse (negative x, no strafe/rotation) that the monitor zeroed is
+# re-emitted, capped, and only while a fresh scan shows the rear box clear. The
+# box covers the rear half of the 0.55 m stop square plus margin. The cap is a
+# starting value; raise it only after hardware braking distance is measured.
+stop_zone_recovery:
+  ros__parameters:
+    raw_cmd_vel_in_topic: "/cmd_vel"
+    limited_cmd_vel_in_topic: "/cmd_vel/collision_limited"
+    cmd_vel_out_topic: "/cmd_vel/recovery_limited"
+    scan_in_topic: "/scan"
+    base_frame_id: "base_link"
+    max_reverse_speed: 0.05
+    rear_box_x_min: -1.0
+    rear_box_x_max: 0.0
+    rear_box_half_width: 0.65
+    min_blocking_points: 1
+    scan_timeout_sec: 0.3
+    command_timeout_sec: 0.3
+    future_stamp_tolerance_sec: 0.1

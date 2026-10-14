@@ -13,7 +13,7 @@ ScanHealthGateNode::ScanHealthGateNode(const rclcpp::NodeOptions & options)
 : Node("scan_health_gate", options)
 {
   const auto input_topic =
-    declare_parameter<std::string>("cmd_vel_in_topic", "/cmd_vel/collision_limited");
+    declare_parameter<std::string>("cmd_vel_in_topic", "/cmd_vel/recovery_limited");
   const auto output_topic =
     declare_parameter<std::string>("cmd_vel_out_topic", "/cmd_vel/scan_health_limited");
   const auto scan_topic = declare_parameter<std::string>("scan_in_topic", "/scan");

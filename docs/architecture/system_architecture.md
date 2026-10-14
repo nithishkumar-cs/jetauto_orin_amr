@@ -25,7 +25,8 @@ RGB/depth camera
                                                               +-> perception_fusion
 2D LiDAR -> /scan -> perception_lidar_clustering -> lidar tracker+
 
-/scan -> nav2_collision_monitor -> scan_health_gate -> estop_gate
+/scan -> nav2_collision_monitor -> stop_zone_recovery -> scan_health_gate
+     -> estop_gate
      -> base driver or simulator
 
 /odom/wheel (+ /imu/data on hardware) -> robot_localization EKF

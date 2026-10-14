@@ -31,7 +31,7 @@ current repository. For current measured milestones and remaining gates, use
 
 - `amr_interfaces` (top-level, `src/amr_interfaces`) — shared message contracts. Source-agnostic; no algorithms. The `platform` layer was dissolved 2026-10-14; a future TF/calibration package would also sit top-level.
 - `perception` — camera → detection → depth-projection → tracking → fusion → `/perception/fused_obstacles`.
-- `safety` — collision avoidance plus an operator stop. **Obstacle zones are `nav2_collision_monitor` (upstream), not our code**; `scan_health_gate` closes the Humble scan-loss gap; `estop_gate` is the final latching software operator-stop. Chain: `/cmd_vel` → collision monitor → `/cmd_vel/collision_limited` → scan-health gate → `/cmd_vel/scan_health_limited` → e-stop latch → `/cmd_vel/safety_limited`.
+- `safety` — collision avoidance plus an operator stop. **Obstacle zones are `nav2_collision_monitor` (upstream), not our code**; `scan_health_gate` closes the Humble scan-loss gap; `estop_gate` is the final latching software operator-stop. Chain: `/cmd_vel` → collision monitor → `/cmd_vel/collision_limited` → stop-zone recovery (bounded reverse-only escape) → `/cmd_vel/recovery_limited` → scan-health gate → `/cmd_vel/scan_health_limited` → e-stop latch → `/cmd_vel/safety_limited`.
 - `localization` — SLAM / localization & mapping.
 - `navigation` — nav tasks + teleop relay.
 - `drivers` — real hardware IO. Consumes `/cmd_vel/safety_limited`, publishes `/odom/wheel`.
@@ -103,8 +103,9 @@ Use ROS Humble: `source /opt/ros/humble/setup.bash`.
   While latched it publishes zero velocity for each received command; otherwise it publishes commands
   to `/cmd_vel/safety_limited` after scan-health limiting; it is the final
   software command authority.
+- `stop_zone_recovery` — bounded reverse-only escape from a collision-monitor stop zone (user chose design A, 2026-10-14). If the monitor zeroed a command whose raw `/cmd_vel` is a fresh pure reverse (no strafe/rotation), it emits that reverse capped at 0.05 m/s iff a fresh scan shows the rear box (1.0 m behind, ±0.65 m) empty; otherwise the monitor output passes unchanged. Component tests only; not yet run in Isaac or on hardware. Not safety-rated.
 - `scan_health_gate` — separate C++ scan/TF-health interlock. It consumes
-  `/cmd_vel/collision_limited` and `/scan`, publishes
+  `/cmd_vel/recovery_limited` and `/scan`, publishes
   `/cmd_vel/scan_health_limited`, and emits zero at 20 Hz while scans have
   never arrived or are stale/unusable. It checks both ROS header age and a
   steady-clock receipt timeout, and requires the scan-to-base transform through

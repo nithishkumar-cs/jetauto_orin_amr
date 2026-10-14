@@ -86,12 +86,19 @@ NODE_SPECS: dict = {
     # unlike our own packages it does not wait on the rebuild.
     #
     #   /cmd_vel -> collision_monitor -> /cmd_vel/collision_limited
+    #            -> stop_zone_recovery -> /cmd_vel/recovery_limited
     #            -> scan_health_gate -> /cmd_vel/scan_health_limited
     #            -> estop_gate (operator stop) -> /cmd_vel/safety_limited -> driver
     #
     # /scan is configured as its source. If scans disappear, Humble's
     # source_timeout ignores that source (fail-open); this is not a watchdog.
     "safety": [
+        {
+            "package": "stop_zone_recovery",
+            "executable": "stop_zone_recovery_node",
+            "name": "stop_zone_recovery",
+            "parameters": [str(project_config("safety", "stop_zone_recovery.yaml"))],
+        },
         {
             "package": "scan_health_gate",
             "executable": "scan_health_gate_node",
