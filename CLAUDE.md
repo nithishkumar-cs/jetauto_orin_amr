@@ -105,14 +105,15 @@ Use ROS Humble: `source /opt/ros/humble/setup.bash`.
   While latched it publishes zero velocity for each received command; otherwise it publishes commands
   to `/cmd_vel/safety_limited` after scan-health limiting; it is the final
   software command authority.
-- `scan_health_gate` — separate C++ scan-freshness interlock. It consumes
+- `scan_health_gate` — separate C++ scan/TF-health interlock. It consumes
   `/cmd_vel/collision_limited` and `/scan`, publishes
   `/cmd_vel/scan_health_limited`, and emits zero at 20 Hz while scans have
   never arrived or are stale/unusable. It checks both ROS header age and a
-  steady-clock receipt timeout; a fresh usable scan allows commands again.
-  This is not safety-rated and does not prove the collision monitor could
-  transform or process every scan. See
-  `docs/validation/offline_scan_health_interlock_2026-10-13.md`.
+  steady-clock receipt timeout, and requires the scan-to-base transform through
+  `odom` at the current command time. A missing moving TF holds zero even if
+  scans remain fresh. This is not safety-rated and a separate TF listener
+  cannot prove the collision monitor processed the same scan. See
+  `docs/validation/offline_isaac_safety_replay_2026-10-13.md`.
 - `collision_monitor` — **WIRED AND VERIFIED ACTIVE.** Config at
   `configs/safety/collision_monitor.yaml`, launched by bringup together with its
   lifecycle manager. Publishes `/cmd_vel/collision_limited`, `/safety/zone_stop`,
@@ -126,6 +127,28 @@ Use ROS Humble: `source /opt/ros/humble/setup.bash`.
   `backend:=isaac` launches no adapter: Isaac's ROS 2 graph must publish and
   consume the canonical AMR topics directly. `base_driver` and replay support
   remain to be rebuilt.
+- `navigation_mode:=follow_path_test` is a guarded Isaac-only, no-driver
+  Nav2 controller bringup. It activates the saved-map localizer, planner,
+  Regulated Pure Pursuit controller, and full software safety chain, but does
+  not send a path goal or start BT Navigator. Its no-goal lifecycle test passed
+  over live Ethernet. Isaac's opt-in command-drive scene now consumes
+  `/cmd_vel/safety_limited`; direct and safety-chain synthetic motion over
+  Ethernet passed. The camera-enabled automated Ethernet suite also exited 0
+  with synchronized RGB/depth, scan, odometry, and TF; camera load reduced
+  Isaac to about 0.59× wall time. **Nav2 `FollowPath` now closes the loop in
+  Isaac:** three consecutive bounded 0.40 m goals succeeded through the full
+  safety chain at a regulated 0.0667 m/s, and the latched e-stop afterwards
+  held 18 zero commands with 0.000 m drift. Each run stopped about 0.148 m
+  short at the 0.15 m `xy_goal_tolerance`, and the measured post-run map
+  residual was 0.177 m — larger than the tolerance Nav2 accepted on. Straight
+  routes only; no turning, obstacle, recovery, BT Navigator, or scan-loss
+  interaction during motion, and 0.59× wall time means no real-time or
+  stopping-distance claim. The bounded runner is
+  `tests/integration_tests/run_isaac_follow_path.py`; it latches the e-stop on
+  exit, so publish `/estop/reset` before the next run. See
+  `docs/validation/isaac_follow_path_drive_2026-10-13.md`,
+  `docs/validation/isaac_follow_path_bringup_2026-10-13.md`, and
+  `docs/validation/isaac_command_drive_wired_2026-10-13.md`.
 - `perception_detection_depth_projection` rebuilt. It synchronizes standard 2D detections,
   aligned depth, and CameraInfo within a configurable bounded interval; takes
   a median depth from each box's center ROI; and publishes standard

@@ -13,7 +13,7 @@ Primary launch axes:
 - `instrumentation_mode`: `debug`, `profile`, or `production`
 - `backend`: `hardware`, `isaac`, or `rosbag`; selects exactly one source edge
 - `slam_mode`: `off`, `mapping`, or `localization`
-- `navigation_mode`: `off` or `planner_only` (default `off`)
+- `navigation_mode`: `off`, `planner_only`, or `follow_path_test` (default `off`)
 - component toggles: `enable_drivers`, `enable_preproc`, `enable_detector`,
   `enable_geometry`, `enable_tracking`, `enable_fusion`, and the remaining
   entries in `configs/runtime_modes/system_modes.yaml`
@@ -119,3 +119,37 @@ normal localization retains 0.2 s. The
 records the scan-admission, freshness, obstacle, and synthetic-drift checks.
 This future-dates the map correction; it does not make scan matching faster
 or authorize a controller.
+
+`follow_path_test` is an opt-in **Isaac-only controller bringup**, not a
+robot navigation mode. It adds Nav2 `controller_server` and its lifecycle
+manager to the saved-map localizer, planner, and software safety chain. It
+does not start `bt_navigator`, a driver, or a path goal. A separate caller
+must request `ComputePathToPose`, then send that path to Nav2's `FollowPath`
+action. The controller's `/cmd_vel` goes through collision monitor,
+scan-health gate, and e-stop; only `/cmd_vel/safety_limited` may be consumed
+by Isaac's opt-in command-drive subscriber. The subscriber and full safety
+chain passed a short wired, synthetic-command motion check; bringup alone
+still sends no motion command.
+
+The mode rejects hardware and rosbag backends, disabled safety, enabled
+drivers or teleop, and missing saved-map localization. It also declines to
+start controller/planner nodes if the safety chain or required Nav2 packages
+are unavailable. The conservative 0.10 m/s RPP settings and 0.33 m simulated
+footprint in `configs/navigation/follow_path_test.yaml` are starting values,
+not validated stopping limits. The simulator command subscriber, watchdog, and
+single `/clock` source were checked first in the
+[wired command-drive check](../../../docs/validation/isaac_command_drive_wired_2026-10-13.md).
+
+Nav2 has since followed a path in this mode: three bounded 0.40 m goals
+succeeded through the full safety chain, and the latched e-stop afterwards
+held zero velocity. The runs also showed a post-goal map residual (0.177 m)
+larger than the configured 0.15 m `xy_goal_tolerance`, and regulated speed
+capped at 0.0667 m/s. Only straight routes at 0.59× wall time were tested — no
+turning, obstacle, recovery, or scan-loss interaction during motion. **This
+does not authorize hardware motion.** Use
+`tests/integration_tests/run_isaac_follow_path.py`, which bounds route length,
+travel, and duration and latches the e-stop on exit. The no-goal lifecycle
+smoke test is recorded in the
+[FollowPath bringup report](../../../docs/validation/isaac_follow_path_bringup_2026-10-13.md),
+the drive in the
+[closed-loop drive report](../../../docs/validation/isaac_follow_path_drive_2026-10-13.md).

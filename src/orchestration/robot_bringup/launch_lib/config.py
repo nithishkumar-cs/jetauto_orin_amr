@@ -12,7 +12,7 @@ from launch_lib.tiers import LOCKED_MODES, REQUIRED, TIERS, TOGGLE_NAMES, tier_o
 VALID_MODES = ("debug", "profile", "production")
 VALID_BACKENDS = ("hardware", "isaac", "rosbag")
 VALID_SLAM_MODES = ("off", "mapping", "localization")
-VALID_NAVIGATION_MODES = ("off", "planner_only")
+VALID_NAVIGATION_MODES = ("off", "planner_only", "follow_path_test")
 
 
 @dataclass
@@ -193,16 +193,20 @@ def check_constraints(enabled: dict, mode: str) -> None:
 def check_navigation_constraints(
     navigation_mode: str, backend: str, slam_mode: str, enabled: dict
 ) -> None:
-    if navigation_mode != "planner_only":
+    if navigation_mode == "off":
         return
-    if backend == "hardware":
+    if navigation_mode == "planner_only" and backend == "hardware":
         raise RuntimeError("planner_only is validated only for isaac or rosbag backends.")
+    if navigation_mode == "follow_path_test" and backend != "isaac":
+        raise RuntimeError("follow_path_test is restricted to the isaac backend.")
     if slam_mode != "localization":
-        raise RuntimeError("planner_only requires slam_mode=localization as its map source.")
+        raise RuntimeError(f"{navigation_mode} requires slam_mode=localization as its map source.")
     if not enabled["navigation"]:
-        raise RuntimeError("planner_only requires enable_navigation=true.")
+        raise RuntimeError(f"{navigation_mode} requires enable_navigation=true.")
     if enabled["drivers"] or enabled["teleop"]:
-        raise RuntimeError("planner_only requires drivers and teleop disabled.")
+        raise RuntimeError(f"{navigation_mode} requires drivers and teleop disabled.")
+    if navigation_mode == "follow_path_test" and not enabled["safety"]:
+        raise RuntimeError("follow_path_test requires enable_safety=true.")
 
 
 def resolve_config(context) -> ResolvedConfig:

@@ -162,6 +162,25 @@ PLANNER_ONLY_SPECS = [
     },
 ]
 
+FOLLOW_PATH_TEST_SPECS = [
+    {
+        "package": "nav2_controller",
+        "executable": "controller_server",
+        "name": "controller_server",
+        "parameters": [str(project_config("navigation", "follow_path_test.yaml"))],
+        "required_packages": ["nav2_costmap_2d", "nav2_regulated_pure_pursuit_controller"],
+        # Nav2 Humble's controller publishes cmd_vel. This is the input to
+        # the existing collision-monitor -> scan-health -> e-stop chain.
+        "remappings": [("cmd_vel", "/cmd_vel")],
+    },
+    {
+        "package": "nav2_lifecycle_manager",
+        "executable": "lifecycle_manager",
+        "name": "lifecycle_manager_controller",
+        "parameters": [str(project_config("navigation", "follow_path_test.yaml"))],
+    },
+]
+
 
 def _node_action(
     spec: dict,
@@ -293,8 +312,11 @@ def build_actions(resolved: ResolvedConfig) -> list:
 
     if resolved.slam_mode in ("mapping", "localization"):
         spec = SLAM_MAPPING_SPEC if resolved.slam_mode == "mapping" else SLAM_LOCALIZATION_SPEC
-        if resolved.slam_mode == "localization" and resolved.navigation_mode == "planner_only":
-            # Only the simulation planner profile uses the validated TF offset.
+        if resolved.slam_mode == "localization" and resolved.navigation_mode in (
+            "planner_only", "follow_path_test"
+        ):
+            # Only the simulation planning/controller-test profiles use the
+            # validated TF offset.
             # Keep ordinary and future hardware localization on their base config.
             spec = {
                 **spec,
@@ -328,23 +350,31 @@ def build_actions(resolved: ResolvedConfig) -> list:
             )
             launched.append(resolved.slam_mode)
 
-    if resolved.navigation_mode == "planner_only":
+    if resolved.navigation_mode in ("planner_only", "follow_path_test"):
+        navigation_specs = [
+            *PLANNER_ONLY_SPECS,
+            *(FOLLOW_PATH_TEST_SPECS if resolved.navigation_mode == "follow_path_test" else []),
+        ]
         required = [
             package
-            for spec in PLANNER_ONLY_SPECS
+            for spec in navigation_specs
             for package in [spec["package"], *spec.get("required_packages", [])]
         ]
         missing = sorted({package for package in required if not package_available(package)})
         if "localization" not in launched:
-            pending.append("planner_only (localization map source unavailable)")
+            pending.append(f"{resolved.navigation_mode} (localization map source unavailable)")
+        elif resolved.navigation_mode == "follow_path_test" and "safety" not in launched:
+            pending.append("follow_path_test (safety chain unavailable)")
         elif missing:
-            pending.append(f"planner_only (packages not built: {', '.join(missing)})")
+            pending.append(
+                f"{resolved.navigation_mode} (packages not built: {', '.join(missing)})"
+            )
         else:
             actions.extend(
                 _node_action(spec, resolved.log_level, True, resolved.backend)
-                for spec in PLANNER_ONLY_SPECS
+                for spec in navigation_specs
             )
-            launched.append("planner_only")
+            launched.append(resolved.navigation_mode)
 
     if pending:
         actions.append(

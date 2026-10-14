@@ -50,7 +50,10 @@ def declared_arguments() -> list:
         DeclareLaunchArgument(
             "navigation_mode",
             default_value="off",
-            description="off | planner_only. Planner-only mode never starts motion control.",
+            description=(
+                "off | planner_only | follow_path_test. The latter is an "
+                "Isaac-only, no-driver controller action test."
+            ),
         ),
         DeclareLaunchArgument(
             "pose_graph_prefix",

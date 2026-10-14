@@ -28,6 +28,13 @@ def resolved(navigation_mode):
     )
 
 
+def follow_path_resolved():
+    result = resolved("follow_path_test")
+    result.backend = "isaac"
+    result.enabled["safety"] = True
+    return result
+
+
 def test_unknown_navigation_mode_rejected():
     with pytest.raises(RuntimeError, match="Unknown navigation_mode"):
         config.resolve_navigation_mode({"navigation_mode": "controller"})
@@ -44,6 +51,28 @@ def test_planner_scan_source_accepts_lidar_height():
     assert scan["max_obstacle_height"] > 0.24
     assert scan["marking"] is True
     assert scan["clearing"] is True
+
+
+def test_follow_path_config_uses_live_scan_and_conservative_command():
+    project_root = Path(__file__).resolve().parents[4]
+    path_config = yaml.safe_load(
+        (project_root / "configs/navigation/follow_path_test.yaml").read_text()
+    )
+    controller = path_config["controller_server"]["ros__parameters"]
+    costmap = path_config["local_costmap"]["local_costmap"]["ros__parameters"]
+    assert controller["odom_topic"] == "/odom/wheel"
+    assert controller["FollowPath"]["desired_linear_vel"] <= 0.10
+    assert controller["FollowPath"]["use_collision_detection"] is True
+    assert costmap["global_frame"] == "odom"
+    # Nav2 Humble declares these dimensions as integers and aborts if YAML
+    # supplies doubles (3.0), even though both denote three metres.
+    assert type(costmap["width"]) is int
+    assert type(costmap["height"]) is int
+    assert costmap["obstacle_layer"]["scan"]["topic"] == "/scan"
+    assert costmap["obstacle_layer"]["scan"]["max_obstacle_height"] > 0.24
+    assert path_config["lifecycle_manager_controller"]["ros__parameters"][
+        "node_names"
+    ] == ["controller_server"]
 
 
 def test_planner_localizer_tf_override_is_scoped():
@@ -151,3 +180,65 @@ def test_missing_localizer_does_not_start_planner(monkeypatch, tmp_path):
     monkeypatch.setattr(actions, "_node_action", capture)
     actions.build_actions(resolved("planner_only"))
     assert calls == []
+
+
+def test_follow_path_mode_requires_isaac_localization_safety_and_no_drivers():
+    selected = follow_path_resolved()
+    config.check_navigation_constraints(
+        selected.navigation_mode, selected.backend, selected.slam_mode, selected.enabled
+    )
+    for backend, slam_mode, change, message in [
+        ("hardware", "localization", None, "restricted to the isaac backend"),
+        ("rosbag", "localization", None, "restricted to the isaac backend"),
+        ("isaac", "mapping", None, "slam_mode=localization"),
+        ("isaac", "localization", ("navigation", False), "enable_navigation=true"),
+        ("isaac", "localization", ("drivers", True), "drivers and teleop disabled"),
+        ("isaac", "localization", ("teleop", True), "drivers and teleop disabled"),
+        ("isaac", "localization", ("safety", False), "enable_safety=true"),
+    ]:
+        enabled = selected.enabled.copy()
+        if change:
+            enabled[change[0]] = change[1]
+        with pytest.raises(RuntimeError, match=message):
+            config.check_navigation_constraints("follow_path_test", backend, slam_mode, enabled)
+
+
+def test_follow_path_launch_is_guarded_and_ends_at_safety_topic(monkeypatch, tmp_path):
+    monkeypatch.setenv("ROS_LOG_DIR", str(tmp_path))
+    monkeypatch.setattr(actions, "package_available", lambda _: True)
+    calls = []
+
+    def capture(spec, log_level, use_sim_time, backend, extra_parameters=None):
+        calls.append((spec["executable"], use_sim_time, spec.get("remappings", [])))
+        return object()
+
+    monkeypatch.setattr(actions, "_node_action", capture)
+    actions.build_actions(follow_path_resolved())
+    assert [call[0] for call in calls] == [
+        "scan_health_gate_node",
+        "estop_gate_node",
+        "collision_monitor",
+        "lifecycle_manager",
+        "localization_slam_toolbox_node",
+        "planner_server",
+        "lifecycle_manager",
+        "controller_server",
+        "lifecycle_manager",
+    ]
+    assert all(call[1] for call in calls)
+    assert calls[-2][2] == [("cmd_vel", "/cmd_vel")]
+    assert "bt_navigator" not in [call[0] for call in calls]
+
+
+def test_follow_path_does_not_start_controller_without_safety(monkeypatch, tmp_path):
+    monkeypatch.setenv("ROS_LOG_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        actions, "package_available", lambda package: package != "scan_health_gate"
+    )
+    calls = []
+    monkeypatch.setattr(
+        actions, "_node_action",
+        lambda spec, *args, **kwargs: calls.append(spec["executable"]) or object(),
+    )
+    actions.build_actions(follow_path_resolved())
+    assert calls == ["localization_slam_toolbox_node"]
