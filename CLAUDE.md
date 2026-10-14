@@ -72,14 +72,15 @@ as described in `src/orchestration/robot_bringup/README.md`.
 - **Adding a package back:** add a `NODE_SPECS` entry in `actions.py` and an
   `exec_depend` in `package.xml`. Unregistered or unbuilt packages are reported
   and skipped, never fatal.
-- **Still open.** *Synthetic substitution* — a `false` toggle currently logs its
-  intent instead of spawning a stand-in publisher; it needs the output contracts,
-  so it waits on the packages. *Variant validated-sets* — `variant` components are
-  currently free toggles; the "validated combinations only" rule is not enforced.
+- **Current.** Disabled required perception stages in debug/profile publish
+  empty arrays from input stamps. Disabled safety with no driver publishes zero
+  commands. A disabled driver starts no actuator process. Variant selections
+  reject unimplemented teleop, mismatched navigation toggles, hardware drivers
+  without odometry localization, and camera-only perception. Production locks
+  required components on.
 
 ## Pending design decisions (not yet made)
 
-- **`preproc`** — was a dead orphan (its output was consumed by nobody; the detector did its own preprocessing). On rebuild, wire it into the detector or drop it.
 - **debug vs profile divergence** — the `runtime_modes.yaml` knobs (`enable_assertions`, `enable_cuda_timing`, `export_metrics`) are declared but inert (only `log_level` is wired). Wire them or remove them. Add a build-type axis (Release/RelWithDebInfo for profiling vs debug build) — the modes do not model compiler flags today.
 
 ## Rebuild approach

@@ -17,6 +17,7 @@ VALID_NAVIGATION_MODES = ("off", "planner_only", "follow_path_test")
 
 @dataclass
 class ResolvedConfig:
+    """Validated launch selections and resolved component states."""
     args: dict
     instrumentation_mode: str
     backend: str
@@ -28,7 +29,7 @@ class ResolvedConfig:
     runtime_behaviour: dict
     #: toggle name -> enabled. Every name in TOGGLE_NAMES is present.
     enabled: dict
-    #: toggle names that are off and therefore need a synthetic stand-in.
+    #: Disabled required components with a synthetic output contract.
     synthetic: list = field(default_factory=list)
 
 
@@ -169,9 +170,12 @@ def resolve_toggles(args: dict, mode: str, yaml_toggles: dict) -> dict:
                     f"'{arg_name}=false' is not allowed in {mode} mode: "
                     f"'{name}' is a required component and is locked on."
                 )
-            # Optional and variant components remain selectable; required ones
-            # are on regardless of what the YAML says.
-            enabled[name] = True if explicit is None else explicit
+            # Only required components are locked. Variants use the selected
+            # YAML state until an explicit launch choice overrides it.
+            if explicit is not None:
+                enabled[name] = explicit
+            else:
+                enabled[name] = True if tier_of(name) == REQUIRED else bool(yaml_toggles[name])
             continue
 
         enabled[name] = explicit if explicit is not None else bool(yaml_toggles.get(name, True))
@@ -193,6 +197,7 @@ def check_constraints(enabled: dict, mode: str) -> None:
 def check_navigation_constraints(
     navigation_mode: str, backend: str, slam_mode: str, enabled: dict
 ) -> None:
+    """Reject navigation selections outside the tested no-driver modes."""
     if navigation_mode == "off":
         return
     if navigation_mode == "planner_only" and backend == "hardware":
@@ -209,7 +214,27 @@ def check_navigation_constraints(
         raise RuntimeError("follow_path_test requires enable_safety=true.")
 
 
+def check_variant_constraints(
+    enabled: dict, navigation_mode: str, backend: str
+) -> None:
+    """Admit only implemented variant combinations with recorded evidence."""
+    if enabled["teleop"]:
+        raise RuntimeError("enable_teleop=true has no implemented or validated runtime.")
+    if enabled["navigation"] != (navigation_mode != "off"):
+        raise RuntimeError("enable_navigation must match navigation_mode (off or an active mode).")
+    if backend == "hardware" and enabled["drivers"] and not enabled["localization"]:
+        raise RuntimeError("Hardware drivers require localization to own odom -> base_link TF.")
+    if not enabled["lidar_clustering"] and any(
+        enabled[name] for name in ("detector", "geometry", "tracking", "fusion")
+    ):
+        raise RuntimeError(
+            "Camera-only perception is not validated: enable_lidar_clustering=false "
+            "requires the perception chain disabled."
+        )
+
+
 def resolve_config(context) -> ResolvedConfig:
+    """Resolve launch arguments and reject invalid runtime combinations."""
     args = launch_args_from_context(context)
     validate_required_files(args)
 
@@ -236,6 +261,7 @@ def resolve_config(context) -> ResolvedConfig:
     if slam_mode != "off" and backend == "hardware" and not enabled["localization"]:
         raise RuntimeError("Hardware SLAM requires localization to provide odom TF.")
     check_navigation_constraints(navigation_mode, backend, slam_mode, enabled)
+    check_variant_constraints(enabled, navigation_mode, backend)
 
     return ResolvedConfig(
         args=args,
@@ -248,5 +274,8 @@ def resolve_config(context) -> ResolvedConfig:
         log_level=runtime_behaviour.get("log_level", "info"),
         runtime_behaviour=runtime_behaviour,
         enabled=enabled,
-        synthetic=sorted(name for name, on in enabled.items() if not on),
+        synthetic=sorted(
+            name for name, on in enabled.items()
+            if not on and tier_of(name) == REQUIRED and name != "drivers"
+        ),
     )

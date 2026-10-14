@@ -1,4 +1,5 @@
 build/
+.agent-work/
 install/
 log/
 /src/localization/slam_toolbox_vendor/

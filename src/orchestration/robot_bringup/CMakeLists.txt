@@ -17,6 +17,10 @@ install(DIRECTORY launch_lib
   DESTINATION share/${PROJECT_NAME}
 )
 
+install(PROGRAMS scripts/synthetic_source.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 # Top-level configs/ (deployment + mode config), which is where
 # configs/runtime_modes/system_modes.yaml arrives from — it is deliberately not
 # installed out of this package. Three levels up because the package sits at
@@ -31,6 +35,7 @@ if(BUILD_TESTING)
   ament_add_pytest_test(test_slam_mode test/test_slam_mode.py)
   ament_add_pytest_test(test_planner_mode test/test_planner_mode.py)
   ament_add_pytest_test(test_safety_chain test/test_safety_chain.py)
+  ament_add_pytest_test(test_synthetic_bringup test/test_synthetic_bringup.py)
 endif()
 
 ament_package()

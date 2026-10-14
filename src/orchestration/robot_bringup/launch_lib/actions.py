@@ -6,7 +6,6 @@ from launch_ros.actions import Node
 
 from launch_lib.config import ResolvedConfig
 from launch_lib.paths import package_available, package_file, project_config, read_yaml
-from launch_lib.tiers import TIERS
 
 #: toggle name -> LIST of node specs, for components that have been rebuilt.
 #: A list because one component can need several processes (see "safety").
@@ -196,6 +195,7 @@ def _node_action(
     backend: str,
     extra_parameters: dict | None = None,
 ):
+    """Build a node or nested launch action from a registered specification."""
     if "launch_file" in spec:
         launch_file = package_file(spec["package"], "launch", spec["launch_file"])
         return IncludeLaunchDescription(
@@ -217,6 +217,7 @@ def _node_action(
 
 
 def _missing_required_files(spec: dict) -> list[str]:
+    """List absent runtime files required by a node specification."""
     required_names = spec.get("required_file_parameters", [])
     if not required_names:
         return []
@@ -238,6 +239,7 @@ def _missing_required_files(spec: dict) -> list[str]:
 
 
 def build_actions(resolved: ResolvedConfig) -> list:
+    """Compose selected runtime nodes and synthetic stand-ins."""
     on = [name for name, enabled in resolved.enabled.items() if enabled]
     off = resolved.synthetic
 
@@ -393,20 +395,20 @@ def build_actions(resolved: ResolvedConfig) -> list:
             )
         )
 
-    # Synthetic substitution: a `false` toggle is meant to spawn a stand-in
-    # publisher on that component's output contract so downstream nodes still
-    # receive data. That needs the contracts to exist, which means the packages
-    # have to come back first. Until then the intent is reported, not silently
-    # dropped.
+    # Disabled perception stages publish empty, header-aligned output. Safety
+    # publishes only zero velocity; drivers=false starts no actuator process.
     for name in off:
         actions.append(
-            LogInfo(
-                msg=(
-                    f"robot_bringup: '{name}' ({TIERS[name]}) is disabled — "
-                    "synthetic substitution is not implemented yet"
-                )
+            Node(
+                package="robot_bringup",
+                executable="synthetic_source.py",
+                name=f"synthetic_{name}",
+                output="screen",
+                parameters=[{"component": name, "use_sim_time": resolved.backend != "hardware"}],
+                arguments=["--ros-args", "--log-level", resolved.log_level],
             )
         )
+        launched.append(f"synthetic:{name}")
 
     if not launched:
         actions.append(

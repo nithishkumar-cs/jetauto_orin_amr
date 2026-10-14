@@ -4,10 +4,11 @@ CLAUDE.md settles three tiers:
 
   required  core data path (sensors / perception / safety / motion). Locked on
             in production. In debug/profile a `false` means "substitute a
-            synthetic source", never "run without it".
+            synthetic output", never "run without it". Drivers are the
+            exception: false means no local actuator process.
   optional  instrumentation. A free toggle in every mode; nothing depends on it.
-  variant   a choice among *validated* combinations, not a free toggle. Which
-            localization or teleop you run is a selection, not an on/off.
+  variant   a choice among the implemented, validated combinations enforced
+            by config.py.
 
 Toggle names must match the keys in configs/runtime_modes/system_modes.yaml.
 resolve_config() cross-checks both directions, so adding a toggle to the YAML
@@ -20,7 +21,6 @@ VARIANT = "variant"
 
 TIERS = {
     "drivers": REQUIRED,
-    "preproc": REQUIRED,
     "detector": REQUIRED,
     "geometry": REQUIRED,
     # This processing node is selected with a LiDAR-equipped sensor suite.
@@ -38,13 +38,9 @@ TIERS = {
 
 TOGGLE_NAMES = tuple(TIERS)
 
-#: Modes that ignore toggles entirely and run the full stack.
+#: Modes that lock required components on.
 LOCKED_MODES = ("production",)
 
 
 def tier_of(name: str) -> str:
     return TIERS[name]
-
-
-def names_in_tier(tier: str) -> tuple:
-    return tuple(n for n, t in TIERS.items() if t == tier)

@@ -12,6 +12,11 @@
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>vision_msgs</exec_depend>
+  <exec_depend>amr_interfaces</exec_depend>
   <!-- Node packages are added back here as each is rebuilt; see
        launch_lib/actions.py NODE_SPECS for the matching launch entry. -->
   <exec_depend>nav2_collision_monitor</exec_depend>

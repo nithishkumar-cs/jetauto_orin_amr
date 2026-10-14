@@ -1,6 +1,6 @@
 # robot_bringup
 
-Single entrypoint package for the robot runtime. It composes platform,
+Single entrypoint package for the robot runtime. It composes
 perception, diagnostics, safety, localization, and navigation nodes using one
 launch file plus mode arguments.
 
@@ -14,13 +14,19 @@ Primary launch axes:
 - `backend`: `hardware`, `isaac`, or `rosbag`; selects exactly one source edge
 - `slam_mode`: `off`, `mapping`, or `localization`
 - `navigation_mode`: `off`, `planner_only`, or `follow_path_test` (default `off`)
-- component toggles: `enable_drivers`, `enable_preproc`, `enable_detector`,
+- component toggles: `enable_drivers`, `enable_detector`,
   `enable_geometry`, `enable_tracking`, `enable_fusion`, and the remaining
   entries in `configs/runtime_modes/system_modes.yaml`
 
-`system_modes.yaml` lives at the package root and defines two component sets:
-one shared by `debug` and `profile`, and one for `production`. Launch arguments
-can override component toggles when needed. The default `backend:=hardware`
+`configs/runtime_modes/system_modes.yaml` supplies shared toggle defaults.
+In debug and profile, disabling a required perception stage launches an empty
+publisher tied to its input timestamps; disabling safety is allowed only with
+drivers disabled and publishes zero on `/cmd_vel/safety_limited`. A disabled
+driver starts no actuator. Production locks required components on. Variant
+choices are checked: teleop is unavailable, navigation must match
+`navigation_mode`, hardware drivers require odometry localization, and the
+camera-only perception chain is not validated.
+The default `backend:=hardware`
 will start `base_driver` once that package exists. `backend:=isaac` launches no
 adapter: configure Isaac's ROS 2 graph to publish and consume the canonical AMR
 topics directly. `backend:=rosbag` is reserved for a replay launch, which will

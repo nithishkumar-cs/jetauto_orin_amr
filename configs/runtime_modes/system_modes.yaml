@@ -2,15 +2,15 @@
 # Mode *behavior* (log level, assertions, CUDA timing, metrics, detector backend)
 # lives in runtime_modes.yaml.
 #
-# toggles apply to debug and profile only. false => the node is replaced by a
-# synthetic source (drivers=false => rosbag / sim bridge). safety=false is allowed
-# only when drivers=false. production ignores toggles and runs the full stack.
+# Required toggles are locked on in production. In debug/profile, false selects
+# an empty synthetic perception source or a zero-command safety source.
+# drivers=false leaves motion to an external simulator/bag edge or no actuator.
+# Variant choices must pass bringup's validated-combination checks.
 
 default_mode: debug
 
 toggles:
   drivers:               true
-  preproc:               true
   detector:              true
   geometry:              true
   lidar_clustering:       true
@@ -18,8 +18,8 @@ toggles:
   fusion:                true
   safety:                true
   localization:          true
-  navigation:            true
-  teleop:                true
+  navigation:            false
+  teleop:                false
   diagnostics:           true
   benchmarks:            true
   calibration_validator: true
