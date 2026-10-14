@@ -80,7 +80,6 @@ as described in `src/orchestration/robot_bringup/README.md`.
 ## Pending design decisions (not yet made)
 
 - **`preproc`** — was a dead orphan (its output was consumed by nobody; the detector did its own preprocessing). On rebuild, wire it into the detector or drop it.
-- **Safety `frame_id` validation** — safety trusted the obstacle frame blindly (fail-open). Decide skip-vs-degrade on a frame mismatch.
 - **debug vs profile divergence** — the `runtime_modes.yaml` knobs (`enable_assertions`, `enable_cuda_timing`, `export_metrics`) are declared but inert (only `log_level` is wired). Wire them or remove them. Add a build-type axis (Release/RelWithDebInfo for profiling vs debug build) — the modes do not model compiler flags today.
 
 ## Rebuild approach
