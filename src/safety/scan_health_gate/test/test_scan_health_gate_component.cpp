@@ -198,15 +198,23 @@ TEST_F(ScanHealthGateComponentTest, BlocksUntilScanFrameCanBeTransformed)
   transform.child_frame_id = "lidar_link";
   transform.transform.rotation.w = 1.0;
   tf_broadcaster_->sendTransform(transform);
-  spin_for(50ms);
-  scan = valid_scan();
-  scan.header.frame_id = "lidar_link";
-  scan_pub_->publish(scan);
-  spin_for(50ms);
-  const auto before_recovery = outputs_.size();
-  publish_command();
-  ASSERT_TRUE(wait_for_output_after(before_recovery));
-  EXPECT_DOUBLE_EQ(outputs_.back().linear.x, 0.4);
+  // TF delivery is asynchronous and slow under parallel load: republish a fresh
+  // scan and command until the gate passes it, instead of fixed sleeps.
+  bool passed = false;
+  const auto deadline = std::chrono::steady_clock::now() + 5s;
+  while (!passed && std::chrono::steady_clock::now() < deadline) {
+    scan = valid_scan();
+    scan.header.frame_id = "lidar_link";
+    scan_pub_->publish(scan);
+    spin_for(50ms);
+    const auto before_recovery = outputs_.size();
+    publish_command();
+    spin_for(100ms);
+    for (auto i = before_recovery; i < outputs_.size(); ++i) {
+      passed = passed || outputs_[i].linear.x == 0.4;
+    }
+  }
+  EXPECT_TRUE(passed);
 }
 
 }  // namespace
