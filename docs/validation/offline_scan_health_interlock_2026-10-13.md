@@ -81,3 +81,7 @@ The one-finite-return rule is intentionally conservative: a legitimate
 all-infinity scan will hold zero. The 0.3 s timeout and 0.1 s future-stamp
 tolerance are starting values, not measured transport guarantees; check
 them against the actual LiDAR and live Isaac clock behavior before motion.
+
+The later [recorded Isaac scan/TF replay](offline_isaac_safety_replay_2026-10-13.md)
+tested moving-TF loss and extended the gate to hold zero when the scan cannot
+be transformed through `odom` to the current base frame.

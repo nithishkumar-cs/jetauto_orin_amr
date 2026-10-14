@@ -2,7 +2,7 @@
 <package format="3">
   <name>scan_health_gate</name>
   <version>0.1.0</version>
-  <description>Fail-closed LiDAR scan freshness interlock for velocity commands.</description>
+  <description>Fail-closed LiDAR scan and TF health interlock for velocity commands.</description>
   <maintainer email="nithish@example.com">Nithish</maintainer>
   <license>MIT</license>
 
@@ -11,6 +11,7 @@
   <depend>geometry_msgs</depend>
   <depend>rclcpp</depend>
   <depend>sensor_msgs</depend>
+  <depend>tf2_ros</depend>
 
   <test_depend>ament_cmake_gtest</test_depend>
 

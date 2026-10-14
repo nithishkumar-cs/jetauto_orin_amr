@@ -13,12 +13,13 @@ find_package(ament_cmake REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
 
 add_library(scan_health_gate_node_lib src/scan_health_gate_node.cpp)
 target_include_directories(scan_health_gate_node_lib PUBLIC
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
   "$<INSTALL_INTERFACE:include>")
-ament_target_dependencies(scan_health_gate_node_lib geometry_msgs rclcpp sensor_msgs)
+ament_target_dependencies(scan_health_gate_node_lib geometry_msgs rclcpp sensor_msgs tf2_ros)
 
 add_executable(scan_health_gate_node src/main.cpp)
 target_link_libraries(scan_health_gate_node scan_health_gate_node_lib)
@@ -29,7 +30,7 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   ament_add_gtest(test_scan_health_gate_component test/test_scan_health_gate_component.cpp)
   target_link_libraries(test_scan_health_gate_component scan_health_gate_node_lib)
-  ament_target_dependencies(test_scan_health_gate_component geometry_msgs rclcpp sensor_msgs)
+  ament_target_dependencies(test_scan_health_gate_component geometry_msgs rclcpp sensor_msgs tf2_ros)
   set_tests_properties(test_scan_health_gate_component PROPERTIES LABELS "component;gtest")
 endif()
 

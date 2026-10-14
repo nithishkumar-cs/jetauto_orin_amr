@@ -17,6 +17,8 @@ ScanHealthGateNode::ScanHealthGateNode(const rclcpp::NodeOptions & options)
   const auto output_topic =
     declare_parameter<std::string>("cmd_vel_out_topic", "/cmd_vel/scan_health_limited");
   const auto scan_topic = declare_parameter<std::string>("scan_in_topic", "/scan");
+  base_frame_ = declare_parameter<std::string>("base_frame_id", "base_link");
+  odom_frame_ = declare_parameter<std::string>("odom_frame_id", "odom");
   const auto timeout_sec = declare_parameter<double>("scan_timeout_sec", 0.3);
   const auto future_tolerance_sec = declare_parameter<double>("future_stamp_tolerance_sec", 0.1);
   const auto stop_rate_hz = declare_parameter<double>("stop_publish_rate_hz", 20.0);
@@ -25,10 +27,15 @@ ScanHealthGateNode::ScanHealthGateNode(const rclcpp::NodeOptions & options)
     future_tolerance_sec < 0.0 || !std::isfinite(stop_rate_hz) || stop_rate_hz <= 0.0) {
     throw std::invalid_argument("scan timeout, timestamp tolerance, or stop rate is invalid");
   }
+  if (base_frame_.empty() || odom_frame_.empty()) {
+    throw std::invalid_argument("base and odom frame IDs must not be empty");
+  }
 
   scan_timeout_ = rclcpp::Duration::from_seconds(timeout_sec);
   future_stamp_tolerance_ = rclcpp::Duration::from_seconds(future_tolerance_sec);
   receipt_timeout_ = std::chrono::duration<double>(timeout_sec);
+  tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
+  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
   publisher_ = create_publisher<geometry_msgs::msg::Twist>(output_topic, rclcpp::QoS(10));
   command_subscription_ = create_subscription<geometry_msgs::msg::Twist>(
@@ -61,6 +68,7 @@ void ScanHealthGateNode::on_scan(const sensor_msgs::msg::LaserScan::ConstSharedP
   std::scoped_lock lock(mutex_);
   scan_valid_ = valid;
   if (valid) {
+    scan_frame_ = scan->header.frame_id;
     last_scan_stamp_ = stamp;
     last_scan_receipt_ = std::chrono::steady_clock::now();
   } else {
@@ -94,8 +102,11 @@ bool ScanHealthGateNode::scan_is_fresh() const
   const auto now = this->now();
   const auto stamp_age = now - last_scan_stamp_;
   const auto receipt_age = std::chrono::steady_clock::now() - last_scan_receipt_;
+  // Match collision_monitor's base-shift frame/time request. A zero-wait
+  // lookup deliberately closes the gate until this listener has the TF.
   return stamp_age <= scan_timeout_ && last_scan_stamp_ - now <= future_stamp_tolerance_ &&
-         receipt_age <= receipt_timeout_;
+         receipt_age <= receipt_timeout_ &&
+         tf_buffer_->canTransform(base_frame_, now, scan_frame_, last_scan_stamp_, odom_frame_);
 }
 
 void ScanHealthGateNode::publish_stop()

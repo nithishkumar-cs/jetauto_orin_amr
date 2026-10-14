@@ -4,10 +4,13 @@
 #include <chrono>
 #include <memory>
 #include <mutex>
+#include <string>
 
 #include "geometry_msgs/msg/twist.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
+#include "tf2_ros/buffer.h"
+#include "tf2_ros/transform_listener.h"
 
 namespace scan_health_gate
 {
@@ -26,11 +29,16 @@ private:
 
   mutable std::mutex mutex_;
   bool scan_valid_{false};
+  std::string scan_frame_;
+  std::string base_frame_;
+  std::string odom_frame_;
   rclcpp::Time last_scan_stamp_{0, 0, RCL_ROS_TIME};
   std::chrono::steady_clock::time_point last_scan_receipt_{};
   rclcpp::Duration scan_timeout_{0, 0};
   rclcpp::Duration future_stamp_tolerance_{0, 0};
   std::chrono::duration<double> receipt_timeout_{0.0};
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr publisher_;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr command_subscription_;
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_subscription_;

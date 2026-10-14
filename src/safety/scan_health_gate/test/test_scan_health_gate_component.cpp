@@ -9,9 +9,11 @@
 #include <vector>
 
 #include "geometry_msgs/msg/twist.hpp"
+#include "geometry_msgs/msg/transform_stamped.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "scan_health_gate/scan_health_gate_node.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
+#include "tf2_ros/static_transform_broadcaster.h"
 
 namespace
 {
@@ -32,6 +34,13 @@ protected:
        rclcpp::Parameter("stop_publish_rate_hz", 20.0)});
     gate_ = std::make_shared<scan_health_gate::ScanHealthGateNode>(options);
     io_ = std::make_shared<rclcpp::Node>("scan_health_test_io");
+    tf_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(io_);
+    geometry_msgs::msg::TransformStamped transform;
+    transform.header.stamp = io_->now();
+    transform.header.frame_id = "odom";
+    transform.child_frame_id = "base_link";
+    transform.transform.rotation.w = 1.0;
+    tf_broadcaster_->sendTransform(transform);
     command_pub_ = io_->create_publisher<geometry_msgs::msg::Twist>("/test/scan_health/cmd_in", 10);
     scan_pub_ = io_->create_publisher<sensor_msgs::msg::LaserScan>(
       "/test/scan_health/scan", rclcpp::SensorDataQoS());
@@ -48,6 +57,7 @@ protected:
     executor_.remove_node(io_);
     executor_.remove_node(gate_);
     io_.reset();
+    tf_broadcaster_.reset();
     gate_.reset();
   }
 
@@ -96,6 +106,7 @@ protected:
   rclcpp::executors::SingleThreadedExecutor executor_;
   std::shared_ptr<scan_health_gate::ScanHealthGateNode> gate_;
   rclcpp::Node::SharedPtr io_;
+  std::shared_ptr<tf2_ros::StaticTransformBroadcaster> tf_broadcaster_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr command_pub_;
   rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr scan_pub_;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr output_sub_;
@@ -168,6 +179,34 @@ TEST_F(ScanHealthGateComponentTest, RejectsOldAndUnusableScans)
   publish_command();
   ASSERT_TRUE(wait_for_output_after(before_unusable_command));
   EXPECT_DOUBLE_EQ(outputs_.back().linear.x, 0.0);
+}
+
+TEST_F(ScanHealthGateComponentTest, BlocksUntilScanFrameCanBeTransformed)
+{
+  auto scan = valid_scan();
+  scan.header.frame_id = "lidar_link";
+  scan_pub_->publish(scan);
+  spin_for(50ms);
+  const auto before_missing_tf = outputs_.size();
+  publish_command();
+  ASSERT_TRUE(wait_for_output_after(before_missing_tf));
+  EXPECT_DOUBLE_EQ(outputs_.back().linear.x, 0.0);
+
+  geometry_msgs::msg::TransformStamped transform;
+  transform.header.stamp = io_->now();
+  transform.header.frame_id = "base_link";
+  transform.child_frame_id = "lidar_link";
+  transform.transform.rotation.w = 1.0;
+  tf_broadcaster_->sendTransform(transform);
+  spin_for(50ms);
+  scan = valid_scan();
+  scan.header.frame_id = "lidar_link";
+  scan_pub_->publish(scan);
+  spin_for(50ms);
+  const auto before_recovery = outputs_.size();
+  publish_command();
+  ASSERT_TRUE(wait_for_output_after(before_recovery));
+  EXPECT_DOUBLE_EQ(outputs_.back().linear.x, 0.4);
 }
 
 }  // namespace

@@ -6,6 +6,14 @@ The robot stack should not know whether standard topics are produced by live
 hardware, rosbag playback, or an external simulator. Start playback separately,
 then launch `robot_bringup` normally.
 
+For the isolated software-safety replay, run
+`python3 tests/integration_tests/check_isaac_safety_replay.py` from the repo
+root after sourcing ROS and the workspace. It reads the recorded Isaac bag
+without modifying it, replays `/clock`, `/scan`, and TF, and deliberately drops
+scans and then moving TF. It starts only the safety chain and a synthetic
+command publisher; no Nav2 controller or driver is launched. See the
+[validation report](../docs/validation/offline_isaac_safety_replay_2026-10-13.md).
+
 Example:
 
 ```bash
