@@ -17,7 +17,7 @@ current repository. For current measured milestones and remaining gates, use
   `.gitkeep` per folder if you want the skeleton versioned.)
 - **`robot_bringup` is kept but is BROKEN-ON-LAUNCH by design** — see *Deferred* below.
 - **`amr_interfaces` rebuilt (DONE, standards-first).** Lives at
-  `src/platform/amr_interfaces`. Defines only the 2 custom contracts ROS has no
+  `src/amr_interfaces`. Defines only the 2 custom contracts ROS has no
   standard for — `TrackedObstacle`, `TrackedObstacleArray`.
   Everything else uses standards: detection → `vision_msgs/Detection2DArray` +
   `Detection3DArray`; health → `diagnostic_msgs`; e-stop → `std_msgs/Bool`;
@@ -29,7 +29,7 @@ current repository. For current measured milestones and remaining gates, use
 
 ## Layer purpose
 
-- `platform` — shared message contracts (`amr_interfaces`) + TF/calibration foundation. Source-agnostic; no algorithms. *(Dissolution pending — see Pending decisions.)*
+- `amr_interfaces` (top-level, `src/amr_interfaces`) — shared message contracts. Source-agnostic; no algorithms. The `platform` layer was dissolved 2026-10-14; a future TF/calibration package would also sit top-level.
 - `perception` — camera → detection → depth-projection → tracking → fusion → `/perception/fused_obstacles`.
 - `safety` — collision avoidance plus an operator stop. **Obstacle zones are `nav2_collision_monitor` (upstream), not our code**; `scan_health_gate` closes the Humble scan-loss gap; `estop_gate` is the final latching software operator-stop. Chain: `/cmd_vel` → collision monitor → `/cmd_vel/collision_limited` → scan-health gate → `/cmd_vel/scan_health_limited` → e-stop latch → `/cmd_vel/safety_limited`.
 - `localization` — SLAM / localization & mapping.
@@ -79,7 +79,6 @@ as described in `src/orchestration/robot_bringup/README.md`.
 
 ## Pending design decisions (not yet made)
 
-- **`platform` dissolution** — move `sensor_drivers` → `drivers/`, promote `amr_interfaces` + `tf_and_calibration` to top-level, delete `platform/`. Discussed, not decided.
 - **`preproc`** — was a dead orphan (its output was consumed by nobody; the detector did its own preprocessing). On rebuild, wire it into the detector or drop it.
 - **Safety `frame_id` validation** — safety trusted the obstacle frame blindly (fail-open). Decide skip-vs-degrade on a frame mismatch.
 - **debug vs profile divergence** — the `runtime_modes.yaml` knobs (`enable_assertions`, `enable_cuda_timing`, `export_metrics`) are declared but inert (only `log_level` is wired). Wire them or remove them. Add a build-type axis (Release/RelWithDebInfo for profiling vs debug build) — the modes do not model compiler flags today.
