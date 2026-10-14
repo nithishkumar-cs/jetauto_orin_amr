@@ -18,5 +18,4 @@ the architecture a readable shape; the package names remain globally unique.
   project's authoritative `/perception/fused_obstacles`
   `TrackedObstacleArray` contract. **Built.**
 
-`preproc/` is intentionally absent. Add it only if the chosen detector backend
-needs a shared preprocessing step; do not create a node that no consumer uses.
+Preprocessing stays inside the detector backend, which owns its input tensors.

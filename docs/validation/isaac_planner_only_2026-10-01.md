@@ -31,7 +31,7 @@ ros2 launch robot_bringup robot_stack.launch.py \
   slam_mode:=localization navigation_mode:=planner_only \
   pose_graph_prefix:=/home/nithish/jetauto_isaac_maps/loop_20260928 \
   map_start_pose:='[-0.5, -1.0, 0.0]' \
-  enable_drivers:=false enable_preproc:=false enable_detector:=false \
+  enable_drivers:=false enable_detector:=false \
   enable_geometry:=false enable_lidar_clustering:=false \
   enable_tracking:=false enable_fusion:=false enable_safety:=false \
   enable_diagnostics:=false enable_benchmarks:=false \

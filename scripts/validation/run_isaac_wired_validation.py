@@ -23,7 +23,7 @@ TESTS = ROOT / "tests" / "integration_tests"
 SAFETY_LAUNCH = (
     "ros2", "launch", "robot_bringup", "robot_stack.launch.py",
     "instrumentation_mode:=profile", "backend:=isaac", "slam_mode:=off",
-    "navigation_mode:=off", "enable_drivers:=false", "enable_preproc:=false",
+    "navigation_mode:=off", "enable_drivers:=false",
     "enable_detector:=false", "enable_geometry:=false",
     "enable_lidar_clustering:=false", "enable_tracking:=false",
     "enable_fusion:=false", "enable_safety:=true",

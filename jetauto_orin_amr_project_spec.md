@@ -411,7 +411,6 @@ src/
 
   perception/
     cuda_common/
-    preproc/
     inference_core/
     models/
       rf_detr_backend/
@@ -539,7 +538,7 @@ Each package should own its own `test/` directory.
 Examples:
 
 ```text
-src/perception/preproc/test/
+src/perception/detector/test/
 src/perception/geometry/test/
 src/perception/inference_core/test/
 src/perception/models/yolo_backend/test/
@@ -665,9 +664,10 @@ Responsibilities:
 
 This should be one of the clean reusable engineering components of the project.
 
-### 13.6 `perception/preproc`
+### 13.6 Detector-owned preprocessing
 
-Purpose: high-performance preprocessing for image/depth/model inputs.
+Purpose: high-performance preprocessing for the detector's model inputs, inside
+the detector backend rather than in a standalone package.
 
 Responsibilities:
 
@@ -983,8 +983,7 @@ Downstream packages should not consume RF-DETR-specific outputs directly.
 JetAuto sensors/base
   -> platform/sensor_drivers
   -> platform/tf_and_calibration
-  -> perception/preproc
-  -> perception/inference_core + selected model backend
+  -> perception/inference_core + selected model backend (including preprocessing)
   -> perception/geometry
   -> perception/sensor_fusion
   -> perception/tracking
@@ -1241,7 +1240,7 @@ Deliverables:
 
 Build:
 
-1. `perception/preproc`
+1. detector-owned preprocessing
 2. CPU reference implementation
 3. CUDA implementation
 4. correctness tests
