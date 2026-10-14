@@ -14,6 +14,7 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(diagnostic_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 
@@ -96,7 +97,7 @@ target_include_directories(perception_detector_node_lib PUBLIC
 target_link_libraries(perception_detector_node_lib
   perception_detector_core
   perception_detector_backend_factory)
-ament_target_dependencies(perception_detector_node_lib rclcpp sensor_msgs vision_msgs)
+ament_target_dependencies(perception_detector_node_lib rclcpp diagnostic_msgs sensor_msgs vision_msgs)
 
 add_executable(detector_node src/main.cpp)
 target_link_libraries(detector_node perception_detector_node_lib)
@@ -115,7 +116,7 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_detector_node_component test/test_detector_node_component.cpp)
   target_link_libraries(test_detector_node_component perception_detector_node_lib)
-  ament_target_dependencies(test_detector_node_component rclcpp sensor_msgs vision_msgs)
+  ament_target_dependencies(test_detector_node_component rclcpp diagnostic_msgs sensor_msgs vision_msgs)
   set_tests_properties(test_detector_node_component PROPERTIES LABELS "component;gtest")
 
   if(PERCEPTION_DETECTOR_TENSORRT_ENABLED)

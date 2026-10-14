@@ -54,6 +54,7 @@ struct Detection
   std::string class_id;
 };
 
+/// Backend-neutral detector contract with optional GPU timing.
 class DetectorBackend
 {
 public:
@@ -63,6 +64,12 @@ public:
   // Every returned detection must have finite coordinates, positive size, a
   // score in [0, 1], a non-empty class ID, and lie fully within image's grid.
   virtual std::vector<Detection> detect(const ImageView & image) = 0;
+
+  /// Return the most recent GPU execution duration when CUDA timing is enabled.
+  virtual std::optional<double> last_cuda_inference_ms() const
+  {
+    return std::nullopt;
+  }
 };
 
 }  // namespace perception_detector

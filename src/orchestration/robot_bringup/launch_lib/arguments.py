@@ -21,6 +21,7 @@ ARGUMENT_NAMES = (
 
 
 def declared_arguments() -> list:
+    """Declare the validated bringup axes and component toggles."""
     # configs/ is installed wholesale into share/robot_bringup/project_configs,
     # so both mode files are read from the *installed* tree. With
     # --symlink-install that makes edits live without a rebuild.
@@ -79,7 +80,7 @@ def declared_arguments() -> list:
         DeclareLaunchArgument(
             "runtime_modes_config",
             default_value=str(runtime_modes_dir / "runtime_modes.yaml"),
-            description="Per-mode behaviour: log level, assertions, timing, metrics.",
+            description="Per-mode behaviour: log level, CUDA timing, metrics.",
         ),
     ]
 

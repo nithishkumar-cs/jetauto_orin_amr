@@ -3,6 +3,7 @@
 
 #include <memory>
 
+#include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "perception_detector/detector_backend.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/image.hpp"
@@ -11,6 +12,7 @@
 namespace perception_detector
 {
 
+/// Convert camera images into detections and optional ROS timing diagnostics.
 class DetectorNode : public rclcpp::Node
 {
 public:
@@ -22,12 +24,15 @@ public:
     const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
 private:
+  /// Configure detector topics and optional diagnostics publication.
   void initialize(std::unique_ptr<DetectorBackend> backend);
+  /// Process a valid image and publish detections with optional per-frame timing.
   void on_image(const sensor_msgs::msg::Image::ConstSharedPtr message);
 
   std::unique_ptr<DetectorBackend> backend_;
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_subscription_;
   rclcpp::Publisher<vision_msgs::msg::Detection2DArray>::SharedPtr detections_publisher_;
+  rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr metrics_publisher_;
 };
 
 }  // namespace perception_detector

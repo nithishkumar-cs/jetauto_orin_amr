@@ -43,7 +43,7 @@ domain layout.
 cd ~/projects/robotics/jetauto_orin_amr
 ./scripts/setup/install_jetson_dependencies.sh
 source /opt/ros/humble/setup.bash
-./scripts/dev_helpers/build_release.sh
+./scripts/dev_helpers/build_mode.sh production
 source install/setup.bash
 ros2 launch robot_bringup robot_stack.launch.py instrumentation_mode:=debug
 ```

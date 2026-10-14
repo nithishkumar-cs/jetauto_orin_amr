@@ -81,7 +81,10 @@ as described in `src/orchestration/robot_bringup/README.md`.
 
 ## Pending design decisions (not yet made)
 
-- **debug vs profile divergence** — the `runtime_modes.yaml` knobs (`enable_assertions`, `enable_cuda_timing`, `export_metrics`) are declared but inert (only `log_level` is wired). Wire them or remove them. Add a build-type axis (Release/RelWithDebInfo for profiling vs debug build) — the modes do not model compiler flags today.
+- **Build and instrumentation modes.** `scripts/dev_helpers/build_mode.sh` maps
+  debug/profile/production to Debug/RelWithDebInfo/Release. Assertions follow
+  the build type. Runtime profile mode enables detector CUDA event timing and
+  per-frame metrics on `/diagnostics`; debug and production leave them off.
 
 ## Rebuild approach
 

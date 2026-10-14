@@ -288,10 +288,19 @@ def build_actions(resolved: ResolvedConfig) -> list:
             pending.append(f"{name} (runtime files missing: {', '.join(missing_files)})")
             continue
 
-        actions.extend(
-            _node_action(spec, resolved.log_level, resolved.backend == "isaac", resolved.backend)
-            for spec in specs
-        )
+        for spec in specs:
+            extra_parameters = None
+            if spec["package"] == "perception_detector":
+                extra_parameters = {
+                    "enable_cuda_timing": resolved.runtime_behaviour.get("enable_cuda_timing", False),
+                    "export_metrics": resolved.runtime_behaviour.get("export_metrics", False),
+                }
+            actions.append(
+                _node_action(
+                    spec, resolved.log_level, resolved.backend == "isaac", resolved.backend,
+                    extra_parameters,
+                )
+            )
         launched.append(name)
 
     if resolved.enabled["drivers"]:

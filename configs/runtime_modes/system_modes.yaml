@@ -1,5 +1,5 @@
 # Mode selection + node toggles.
-# Mode *behavior* (log level, assertions, CUDA timing, metrics, detector backend)
+# Mode *behavior* (log level, CUDA timing, metrics, detector backend)
 # lives in runtime_modes.yaml.
 #
 # Required toggles are locked on in production. In debug/profile, false selects

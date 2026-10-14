@@ -15,7 +15,7 @@ This project uses native Jetson installation for the first hardware bring-up. Do
 cd ~/projects/robotics/jetauto_orin_amr
 ./scripts/setup/install_jetson_dependencies.sh
 source /opt/ros/humble/setup.bash
-./scripts/dev_helpers/build_release.sh
+./scripts/dev_helpers/build_mode.sh production
 source install/setup.bash
 ```
 

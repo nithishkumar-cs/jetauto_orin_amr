@@ -18,6 +18,12 @@ Primary launch axes:
   `enable_geometry`, `enable_tracking`, `enable_fusion`, and the remaining
   entries in `configs/runtime_modes/system_modes.yaml`
 
+Build with `./scripts/dev_helpers/build_mode.sh <mode>` before launching the
+same instrumentation mode. This selects `Debug`, `RelWithDebInfo`, or `Release`
+respectively; C/C++ assertions follow that build type. Runtime profile mode
+enables detector CUDA event timing and publishes per-frame detector metrics on
+`/diagnostics`. Debug and production omit that instrumentation.
+
 `configs/runtime_modes/system_modes.yaml` supplies shared toggle defaults.
 In debug and profile, disabling a required perception stage launches an empty
 publisher tied to its input timestamps; disabling safety is allowed only with

@@ -1,20 +1,15 @@
 instrumentation_modes:
   debug:
     log_level: debug
-    enable_assertions: true
-    enable_topic_validation: true
     enable_cuda_timing: false
+    export_metrics: false
 
   profile:
     log_level: info
-    enable_assertions: false
-    enable_topic_validation: true
     enable_cuda_timing: true
     export_metrics: true
 
   production:
     log_level: warn
-    enable_assertions: false
-    enable_topic_validation: false
     enable_cuda_timing: false
     export_metrics: false

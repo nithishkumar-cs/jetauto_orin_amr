@@ -66,6 +66,33 @@ def test_disabled_required_components_launch_synthetic_sources(monkeypatch, tmp_
     assert all(call["executable"] == "synthetic_source.py" for call in calls)
 
 
+def test_profile_instrumentation_reaches_detector(monkeypatch):
+    """Profile mode forwards detector CUDA timing and metric export switches."""
+    calls = []
+
+    def capture_node(**kwargs):
+        """Capture a node launch specification."""
+        calls.append(kwargs)
+        return object()
+
+    monkeypatch.setattr(actions, "Node", capture_node)
+    monkeypatch.setattr(actions, "package_available", lambda _package: True)
+    monkeypatch.setattr(actions, "_missing_required_files", lambda _spec: [])
+    enabled = {name: False for name in TIERS}
+    enabled["detector"] = True
+    resolved = config.ResolvedConfig(
+        args={}, instrumentation_mode="profile", backend="isaac", slam_mode="off",
+        navigation_mode="off", pose_graph_prefix="", map_start_pose=None,
+        log_level="info",
+        runtime_behaviour={"enable_cuda_timing": True, "export_metrics": True},
+        enabled=enabled, synthetic=[],
+    )
+    actions.build_actions(resolved)
+    detector = next(call for call in calls if call["package"] == "perception_detector")
+    assert detector["parameters"][-1]["enable_cuda_timing"] is True
+    assert detector["parameters"][-1]["export_metrics"] is True
+
+
 def test_unvalidated_variant_combinations_are_rejected():
     """Teleop, unmatched navigation, and camera-only perception fail closed."""
     enabled = {name: False for name in TIERS}

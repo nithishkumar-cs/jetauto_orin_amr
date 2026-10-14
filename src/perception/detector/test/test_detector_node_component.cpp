@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "perception_detector/detector_node.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/image.hpp"
@@ -268,6 +269,60 @@ TEST_F(DetectorNodeComponentTest, DoesNotPublishAFalseResultWhenInferenceThrows)
 
   EXPECT_EQ(backend_->call_count(), 1U);
   EXPECT_EQ(output_count(), 0U);
+}
+
+/// Verify metrics are emitted only for a successful inference when enabled.
+TEST(DetectorNodeMetricsTest, PublishesWallTimeAndCountOnlyWhenRequested)
+{
+  rclcpp::NodeOptions options;
+  options.parameter_overrides(
+    {rclcpp::Parameter("image_in_topic", "/test/metrics/image"),
+     rclcpp::Parameter("detections_out_topic", "/test/metrics/detections"),
+     rclcpp::Parameter("export_metrics", true)});
+  auto detector = std::make_shared<DetectorNode>(std::make_unique<FakeDetectorBackend>(), options);
+  auto io = std::make_shared<rclcpp::Node>("detector_metrics_test_io");
+  auto image_publisher =
+    io->create_publisher<sensor_msgs::msg::Image>("/test/metrics/image", rclcpp::SensorDataQoS());
+  std::vector<diagnostic_msgs::msg::DiagnosticArray> metrics;
+  auto subscription = io->create_subscription<diagnostic_msgs::msg::DiagnosticArray>(
+    "/diagnostics", 10, [&metrics](diagnostic_msgs::msg::DiagnosticArray::SharedPtr message) {
+      metrics.push_back(*message);
+    });
+  rclcpp::executors::SingleThreadedExecutor executor;
+  executor.add_node(detector);
+  executor.add_node(io);
+  const auto deadline = std::chrono::steady_clock::now() + 2s;
+  while (std::chrono::steady_clock::now() < deadline &&
+         (image_publisher->get_subscription_count() == 0U ||
+          subscription->get_publisher_count() == 0U)) {
+    executor.spin_some();
+    std::this_thread::sleep_for(5ms);
+  }
+  ASSERT_GT(image_publisher->get_subscription_count(), 0U);
+  ASSERT_GT(subscription->get_publisher_count(), 0U);
+
+  sensor_msgs::msg::Image image;
+  image.header.stamp = io->now();
+  image.width = 8U;
+  image.height = 6U;
+  image.encoding = "rgb8";
+  image.step = 24U;
+  image.data.resize(144U, 127U);
+  image_publisher->publish(image);
+  const auto result_deadline = std::chrono::steady_clock::now() + 2s;
+  while (std::chrono::steady_clock::now() < result_deadline && metrics.empty()) {
+    executor.spin_some();
+    std::this_thread::sleep_for(5ms);
+  }
+  ASSERT_EQ(metrics.size(), 1U);
+  ASSERT_EQ(metrics.front().status.size(), 1U);
+  const auto & status = metrics.front().status.front();
+  EXPECT_EQ(status.name, "perception_detector/metrics");
+  ASSERT_EQ(status.values.size(), 2U);
+  EXPECT_EQ(status.values[0].key, "detect_wall_ms");
+  EXPECT_GE(std::stod(status.values[0].value), 0.0);
+  EXPECT_EQ(status.values[1].key, "detection_count");
+  EXPECT_EQ(status.values[1].value, "0");
 }
 
 TEST(DetectorNodeProductionConstructionTest, RejectsAnUnregisteredBackend)

@@ -1,11 +1,14 @@
 #include "perception_detector/detector_node.hpp"
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <utility>
 
+#include "diagnostic_msgs/msg/diagnostic_status.hpp"
+#include "diagnostic_msgs/msg/key_value.hpp"
 #include "perception_detector/detector_backend_factory.hpp"
 #include "sensor_msgs/image_encodings.hpp"
 
@@ -35,6 +38,7 @@ void DetectorNode::initialize(std::unique_ptr<DetectorBackend> backend)
   const auto detections_out_topic =
     declare_parameter<std::string>("detections_out_topic", "/perception/detections_2d");
   const auto image_queue_size = declare_parameter<int>("image_queue_size", 1);
+  const auto export_metrics = declare_parameter<bool>("export_metrics", false);
 
   if (image_in_topic.empty() || detections_out_topic.empty()) {
     throw std::invalid_argument("detector topic parameters cannot be empty");
@@ -47,6 +51,10 @@ void DetectorNode::initialize(std::unique_ptr<DetectorBackend> backend)
 
   detections_publisher_ =
     create_publisher<vision_msgs::msg::Detection2DArray>(detections_out_topic, rclcpp::QoS(10));
+  if (export_metrics) {
+    metrics_publisher_ =
+      create_publisher<diagnostic_msgs::msg::DiagnosticArray>("/diagnostics", rclcpp::QoS(10));
+  }
   auto image_qos = rclcpp::SensorDataQoS();
   image_qos.keep_last(static_cast<std::size_t>(image_queue_size));
   image_subscription_ = create_subscription<sensor_msgs::msg::Image>(
@@ -80,6 +88,8 @@ void DetectorNode::on_image(const sensor_msgs::msg::Image::ConstSharedPtr messag
   }
 
   std::vector<Detection> detections;
+  const auto start =
+    metrics_publisher_ ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
   try {
     detections = backend_->detect(*image);
   } catch (const std::exception & error) {
@@ -87,6 +97,8 @@ void DetectorNode::on_image(const sensor_msgs::msg::Image::ConstSharedPtr messag
       get_logger(), *get_clock(), 3000, "Detector inference failed: %s", error.what());
     return;
   }
+  const auto finish =
+    metrics_publisher_ ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
 
   vision_msgs::msg::Detection2DArray output;
   output.header = message->header;
@@ -102,7 +114,33 @@ void DetectorNode::on_image(const sensor_msgs::msg::Image::ConstSharedPtr messag
     hypothesis.hypothesis.class_id = detection.class_id;
     hypothesis.hypothesis.score = detection.score;
   }
+  const auto detection_count = output.detections.size();
   detections_publisher_->publish(std::move(output));
+  if (metrics_publisher_) {
+    diagnostic_msgs::msg::DiagnosticArray metrics;
+    metrics.header.stamp = now();
+    auto & status = metrics.status.emplace_back();
+    status.level = diagnostic_msgs::msg::DiagnosticStatus::OK;
+    status.name = "perception_detector/metrics";
+    status.message = "inference completed";
+    status.values.reserve(3U);
+    diagnostic_msgs::msg::KeyValue wall_time;
+    wall_time.key = "detect_wall_ms";
+    wall_time.value =
+      std::to_string(std::chrono::duration<double, std::milli>(finish - start).count());
+    status.values.push_back(std::move(wall_time));
+    diagnostic_msgs::msg::KeyValue count;
+    count.key = "detection_count";
+    count.value = std::to_string(detection_count);
+    status.values.push_back(std::move(count));
+    if (const auto cuda_ms = backend_->last_cuda_inference_ms()) {
+      diagnostic_msgs::msg::KeyValue gpu_time;
+      gpu_time.key = "cuda_inference_ms";
+      gpu_time.value = std::to_string(*cuda_ms);
+      status.values.push_back(std::move(gpu_time));
+    }
+    metrics_publisher_->publish(std::move(metrics));
+  }
 }
 
 }  // namespace perception_detector

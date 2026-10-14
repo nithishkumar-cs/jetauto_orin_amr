@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -31,6 +32,7 @@ struct YoloPostprocessConfig
   YoloOutputFormat output_format{YoloOutputFormat::RAW_XYWH};
 };
 
+/// Configure one YOLO TensorRT engine and optional event timing.
 struct YoloTensorRtConfig
 {
   std::string engine_path;
@@ -40,9 +42,11 @@ struct YoloTensorRtConfig
   std::size_t dynamic_input_width{640U};
   std::size_t dynamic_input_height{640U};
   YoloPreprocessingBackend preprocessing_backend{YoloPreprocessingBackend::CUDA};
+  bool enable_cuda_timing{false};
   YoloPostprocessConfig postprocess;
 };
 
+/// Run YOLO preprocessing, TensorRT inference, and postprocessing.
 class YoloTensorRtBackend final : public DetectorBackend
 {
 public:
@@ -56,6 +60,8 @@ public:
 
   std::string name() const override;
   std::vector<Detection> detect(const ImageView & image) override;
+  /// Return the last timed TensorRT enqueue duration, if enabled.
+  std::optional<double> last_cuda_inference_ms() const override;
 
 private:
   class Impl;

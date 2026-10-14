@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -73,8 +74,66 @@ YoloTensorType yolo_tensor_type(tensorrt::TensorType type)
   return type == tensorrt::TensorType::FLOAT32 ? YoloTensorType::FLOAT32 : YoloTensorType::FLOAT16;
 }
 
+/// Reuse stream events to time TensorRT execution after output synchronization.
+class CudaInferenceTimer
+{
+public:
+  /// Create reusable CUDA events for one inference stream.
+  CudaInferenceTimer()
+  {
+    if (cudaEventCreate(&start_) != cudaSuccess) {
+      throw std::runtime_error("could not create CUDA timing start event");
+    }
+    if (cudaEventCreate(&stop_) != cudaSuccess) {
+      cudaEventDestroy(start_);
+      throw std::runtime_error("could not create CUDA timing stop event");
+    }
+  }
+
+  /// Release CUDA events after the backend stops using them.
+  ~CudaInferenceTimer()
+  {
+    cudaEventDestroy(stop_);
+    cudaEventDestroy(start_);
+  }
+
+  CudaInferenceTimer(const CudaInferenceTimer &) = delete;
+  CudaInferenceTimer & operator=(const CudaInferenceTimer &) = delete;
+
+  /// Record the beginning of TensorRT execution on its stream.
+  void start(cudaStream_t stream)
+  {
+    if (cudaEventRecord(start_, stream) != cudaSuccess) {
+      throw std::runtime_error("could not record CUDA timing start event");
+    }
+  }
+
+  /// Record the end of TensorRT execution on its stream.
+  void stop(cudaStream_t stream)
+  {
+    if (cudaEventRecord(stop_, stream) != cudaSuccess) {
+      throw std::runtime_error("could not record CUDA timing stop event");
+    }
+  }
+
+  /// Read elapsed GPU time after the existing output download synchronizes the stream.
+  double elapsed_ms() const
+  {
+    float elapsed = 0.0F;
+    if (cudaEventElapsedTime(&elapsed, start_, stop_) != cudaSuccess) {
+      throw std::runtime_error("could not read CUDA inference duration");
+    }
+    return static_cast<double>(elapsed);
+  }
+
+private:
+  cudaEvent_t start_{nullptr};
+  cudaEvent_t stop_{nullptr};
+};
+
 }  // namespace
 
+/// Own the TensorRT session and serialize inference with optional event timing.
 class YoloTensorRtBackend::Impl
 {
 public:
@@ -92,8 +151,12 @@ public:
     input_buffer_ = session_->buffer(input_name_);
     output_shape_ = session_->tensor_shape(output_name_);
     preprocessor_ = create_yolo_preprocessor(config_.preprocessing_backend);
+    if (config_.enable_cuda_timing) {
+      timer_ = std::make_unique<CudaInferenceTimer>();
+    }
   }
 
+  /// Run one serialized YOLO inference and retain optional GPU timing.
   std::vector<Detection> detect(const ImageView & image)
   {
     std::scoped_lock lock(inference_mutex_);
@@ -103,11 +166,28 @@ public:
     const auto transform =
       preprocessor_->preprocess(image, input_width_, input_height_, destination);
 
+    last_cuda_inference_ms_.reset();
+    if (timer_) {
+      timer_->start(session_->stream());
+    }
     session_->enqueue();
+    if (timer_) {
+      timer_->stop(session_->stream());
+    }
     auto output = session_->download_output(output_name_);
+    if (timer_) {
+      last_cuda_inference_ms_ = timer_->elapsed_ms();
+    }
     return postprocess_yolo(
       output, output_shape_, transform, image.width(), image.height(), labels_,
       config_.postprocess);
+  }
+
+  /// Return GPU duration for the last successful inference.
+  std::optional<double> last_cuda_inference_ms() const
+  {
+    std::scoped_lock lock(inference_mutex_);
+    return last_cuda_inference_ms_;
   }
 
 private:
@@ -156,8 +236,10 @@ private:
   std::vector<std::string> labels_;
   std::unique_ptr<tensorrt::Session> session_;
   std::unique_ptr<YoloPreprocessor> preprocessor_;
+  std::unique_ptr<CudaInferenceTimer> timer_;
+  std::optional<double> last_cuda_inference_ms_;
   tensorrt::TensorBufferView input_buffer_;
-  std::mutex inference_mutex_;
+  mutable std::mutex inference_mutex_;
 
   std::string input_name_;
   std::string output_name_;
@@ -168,6 +250,7 @@ private:
 
 #else
 
+/// Report that this build has no TensorRT runtime.
 class YoloTensorRtBackend::Impl
 {
 public:
@@ -180,6 +263,12 @@ public:
   std::vector<Detection> detect(const ImageView &)
   {
     return {};
+  }
+
+  /// No GPU execution is available in a build without TensorRT.
+  std::optional<double> last_cuda_inference_ms() const
+  {
+    return std::nullopt;
   }
 };
 
@@ -202,6 +291,11 @@ std::string YoloTensorRtBackend::name() const
 std::vector<Detection> YoloTensorRtBackend::detect(const ImageView & image)
 {
   return impl_->detect(image);
+}
+
+std::optional<double> YoloTensorRtBackend::last_cuda_inference_ms() const
+{
+  return impl_->last_cuda_inference_ms();
 }
 
 }  // namespace perception_detector

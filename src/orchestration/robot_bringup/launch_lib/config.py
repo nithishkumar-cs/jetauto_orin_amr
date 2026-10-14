@@ -255,6 +255,11 @@ def resolve_config(context) -> ResolvedConfig:
     pose_graph_prefix = resolve_pose_graph_prefix(args, slam_mode)
     map_start_pose = resolve_map_start_pose(args, slam_mode)
     runtime_behaviour = runtime_modes["instrumentation_modes"][mode] or {}
+    for key in ("enable_cuda_timing", "export_metrics"):
+        if type(runtime_behaviour.get(key)) is not bool:
+            raise RuntimeError(f"runtime mode '{mode}' requires boolean '{key}'.")
+    if runtime_behaviour["enable_cuda_timing"] and not runtime_behaviour["export_metrics"]:
+        raise RuntimeError("CUDA timing requires metric export to report its results.")
 
     enabled = resolve_toggles(args, mode, system_modes["toggles"])
     check_constraints(enabled, mode)

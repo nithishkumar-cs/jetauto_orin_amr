@@ -12,6 +12,7 @@
 #include <string>
 #include <thread>
 
+#include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "perception_detector/detector_node.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/image.hpp"
@@ -75,6 +76,7 @@ bool valid_detection(
          right <= static_cast<double>(image_width) && bottom <= static_cast<double>(image_height);
 }
 
+/// Run the installed engine and verify CUDA timing reaches ROS diagnostics.
 TEST(DetectorNodeIntegrationTest, RunsInstalledYoloEngineThroughRosTopics)
 {
   int device_count = 0;
@@ -100,6 +102,7 @@ TEST(DetectorNodeIntegrationTest, RunsInstalledYoloEngineThroughRosTopics)
      rclcpp::Parameter("backend", "yolo_tensorrt"),
      rclcpp::Parameter("model_architecture", "yolo26"),
      rclcpp::Parameter("preprocessing_backend", "cuda"),
+     rclcpp::Parameter("enable_cuda_timing", true), rclcpp::Parameter("export_metrics", true),
      rclcpp::Parameter("engine_path", engine_path), rclcpp::Parameter("labels_path", labels_path),
      rclcpp::Parameter("output_format", "end_to_end_xyxy")});
   auto detector_node = std::make_shared<DetectorNode>(options);
@@ -110,6 +113,10 @@ TEST(DetectorNodeIntegrationTest, RunsInstalledYoloEngineThroughRosTopics)
   auto output_subscription = io_node->create_subscription<vision_msgs::msg::Detection2DArray>(
     kDetectionsOutputTopic, 10,
     [&output](vision_msgs::msg::Detection2DArray::SharedPtr message) { output = *message; });
+  std::optional<diagnostic_msgs::msg::DiagnosticArray> metrics;
+  auto metrics_subscription = io_node->create_subscription<diagnostic_msgs::msg::DiagnosticArray>(
+    "/diagnostics", 10,
+    [&metrics](diagnostic_msgs::msg::DiagnosticArray::SharedPtr message) { metrics = *message; });
 
   rclcpp::executors::SingleThreadedExecutor executor;
   executor.add_node(detector_node);
@@ -117,24 +124,36 @@ TEST(DetectorNodeIntegrationTest, RunsInstalledYoloEngineThroughRosTopics)
   const auto connection_deadline = std::chrono::steady_clock::now() + 5s;
   while (std::chrono::steady_clock::now() < connection_deadline &&
          (image_publisher->get_subscription_count() == 0U ||
-          io_node->count_publishers(kDetectionsOutputTopic) == 0U)) {
+          io_node->count_publishers(kDetectionsOutputTopic) == 0U ||
+          metrics_subscription->get_publisher_count() == 0U)) {
     executor.spin_some();
     std::this_thread::sleep_for(5ms);
   }
   ASSERT_GT(image_publisher->get_subscription_count(), 0U);
   ASSERT_GT(io_node->count_publishers(kDetectionsOutputTopic), 0U);
+  ASSERT_GT(metrics_subscription->get_publisher_count(), 0U);
 
   const auto image = make_test_image(*io_node);
-  for (std::size_t attempt = 0U; attempt < 3U && !output; ++attempt) {
+  for (std::size_t attempt = 0U; attempt < 3U && (!output || !metrics); ++attempt) {
     image_publisher->publish(image);
     const auto output_deadline = std::chrono::steady_clock::now() + 3s;
-    while (std::chrono::steady_clock::now() < output_deadline && !output) {
+    while (std::chrono::steady_clock::now() < output_deadline && (!output || !metrics)) {
       executor.spin_some();
       std::this_thread::sleep_for(5ms);
     }
   }
 
   ASSERT_TRUE(output.has_value());
+  ASSERT_TRUE(metrics.has_value());
+  ASSERT_EQ(metrics->status.size(), 1U);
+  bool found_cuda_timing = false;
+  for (const auto & value : metrics->status.front().values) {
+    if (value.key == "cuda_inference_ms") {
+      EXPECT_GT(std::stod(value.value), 0.0);
+      found_cuda_timing = true;
+    }
+  }
+  EXPECT_TRUE(found_cuda_timing);
   EXPECT_EQ(output->header, image.header);
   EXPECT_LE(output->detections.size(), 100U);
   for (const auto & detection : output->detections) {

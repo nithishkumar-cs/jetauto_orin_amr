@@ -6,15 +6,16 @@
 #include <string>
 #include <utility>
 
+#include "backends/yolo/postprocessing.hpp"
 #include "perception_detector/yolo_tensorrt_backend.hpp"
 #include "rclcpp/rclcpp.hpp"
-#include "backends/yolo/postprocessing.hpp"
 
 namespace perception_detector
 {
 namespace
 {
 
+/// Parse YOLO parameters and construct the requested TensorRT backend.
 std::unique_ptr<DetectorBackend> create_yolo_tensorrt_backend(rclcpp::Node & node)
 {
   const auto model_architecture =
@@ -27,6 +28,7 @@ std::unique_ptr<DetectorBackend> create_yolo_tensorrt_backend(rclcpp::Node & nod
   const auto dynamic_input_height = node.declare_parameter<int>("dynamic_input_height", 640);
   const auto preprocessing_backend =
     node.declare_parameter<std::string>("preprocessing_backend", "cuda");
+  const auto enable_cuda_timing = node.declare_parameter<bool>("enable_cuda_timing", false);
   const auto confidence_threshold = node.declare_parameter<double>("confidence_threshold", 0.35);
   const auto nms_iou_threshold = node.declare_parameter<double>("nms_iou_threshold", 0.45);
   const auto max_detections = node.declare_parameter<int>("max_detections", 100);
@@ -61,6 +63,7 @@ std::unique_ptr<DetectorBackend> create_yolo_tensorrt_backend(rclcpp::Node & nod
   config.output_tensor_name = output_tensor_name;
   config.dynamic_input_width = static_cast<std::size_t>(dynamic_input_width);
   config.dynamic_input_height = static_cast<std::size_t>(dynamic_input_height);
+  config.enable_cuda_timing = enable_cuda_timing;
   config.postprocess.confidence_threshold = confidence_threshold;
   config.postprocess.nms_iou_threshold = nms_iou_threshold;
   config.postprocess.max_detections = static_cast<std::size_t>(max_detections);
