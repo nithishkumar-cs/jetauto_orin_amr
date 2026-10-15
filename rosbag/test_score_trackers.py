@@ -97,6 +97,14 @@ class InterpolationTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             GroundTruth([GroundTruthSample(0.0, "a", 0.0, 0.0)], max_gap_s=0.25)
 
+    def test_repeated_time_must_agree(self):
+        """Identical repeats collapse; a conflicting repeat (mixed runs) is rejected."""
+        samples = ground_truth_samples()
+        truth = GroundTruth(samples + samples[:4], max_gap_s=0.25)
+        self.assertAlmostEqual(truth.states_at(0.05)["person"].speed_mps, 0.5)
+        with self.assertRaisesRegex(ValueError, "'person' has two positions at t=0.0"):
+            GroundTruth(samples + [GroundTruthSample(0.0, "person", 2.0, 0.4)], max_gap_s=0.25)
+
     def test_pose_yaw_interpolates_across_wrap(self):
         poses = PoseTimeline([(0.0, 0.0, 0.0, 3.1), (1.0, 2.0, 0.0, -3.1)], max_gap_s=2.0)
         pose = poses.pose_at(0.5)
@@ -219,6 +227,14 @@ class GroundTruthParsingTest(unittest.TestCase):
         self.assertEqual(ground_truth_from_json(text, fields), [GroundTruthSample(3.5, "person", 2.0, -1.0)])
         with self.assertRaisesRegex(ValueError, "top-level keys"):
             ground_truth_from_json(text, parse_field_overrides(""))
+
+    def test_json_list_index_fields(self):
+        """`position.0` addresses an array-valued position; an out-of-range index is reported."""
+        text = json.dumps({"stamp": 1.0, "obstacles": [{"id": "box", "position": [3.0, 0.5, 0.25]}]})
+        fields = parse_field_overrides("x=position.0,y=position.1")
+        self.assertEqual(ground_truth_from_json(text, fields), [GroundTruthSample(1.0, "box", 3.0, 0.5)])
+        with self.assertRaisesRegex(ValueError, "position.3"):
+            ground_truth_from_json(text, parse_field_overrides("x=position.3"))
 
     def test_unknown_field_key_is_rejected(self):
         with self.assertRaises(ValueError):

@@ -36,7 +36,8 @@ GROUND_TRUTH_TYPE = "std_msgs/msg/String"
 # entry of config/topic_contract.yaml in the Windows Isaac repository, which is
 # not on the Jetson. `--gt-fields` overrides them without a code change. CSV
 # uses time/id/x/y as column names; JSON reads time and list at the message top
-# level and id/x/y inside each list item. Dotted names address nested objects.
+# level and id/x/y inside each list item. Dotted names address nested objects
+# and list indices (`x=position.0` for `"position": [x, y, z]`).
 DEFAULT_GT_FIELDS = {"time": "stamp", "list": "obstacles", "id": "id", "x": "x", "y": "y"}
 
 MOTION_KEYS = ("moving_dynamic", "moving_static", "static_dynamic", "static_static")
@@ -126,6 +127,24 @@ def _sorted_unique(rows):
     return [by_time[time] for time in sorted(by_time)]
 
 
+def _sorted_consistent(rows, obstacle_id):
+    """Sort (time, x, y) rows by time, collapsing repeats that agree within 1 um.
+
+    Raises ValueError when one time carries two positions: the input then mixes
+    runs (for example a ground_truth.csv appended across Isaac launches), and
+    keeping either row would silently score against the wrong trajectory.
+    """
+    by_time = {}
+    for row in rows:
+        kept = by_time.setdefault(row[0], row)
+        if math.hypot(kept[1] - row[1], kept[2] - row[2]) > 1e-6:
+            raise ValueError(
+                f"ground-truth obstacle {obstacle_id!r} has two positions at t={row[0]}: "
+                f"({kept[1]}, {kept[2]}) and ({row[1]}, {row[2]}); the input mixes more than one run"
+            )
+    return [by_time[time] for time in sorted(by_time)]
+
+
 def _bracket(times, stamp_s, max_gap_s):
     """Return (index, fraction) interpolating `stamp_s` between samples.
 
@@ -147,8 +166,9 @@ class GroundTruth:
     def __init__(self, samples, max_gap_s):
         """Group samples by obstacle.
 
-        Raises ValueError when there are no samples or an obstacle has fewer
-        than two distinct times, because its speed would be undefined.
+        Raises ValueError when there are no samples, an obstacle has fewer
+        than two distinct times (its speed would be undefined), or one time
+        carries two different positions for an obstacle.
         """
         grouped = defaultdict(list)
         for sample in samples:
@@ -158,7 +178,7 @@ class GroundTruth:
         self.max_gap_s = max_gap_s
         self._tracks = {}
         for obstacle_id, rows in grouped.items():
-            rows = _sorted_unique(rows)
+            rows = _sorted_consistent(rows, obstacle_id)
             if len(rows) < 2:
                 raise ValueError(f"ground-truth obstacle {obstacle_id!r} has fewer than two samples")
             self._tracks[obstacle_id] = tuple(list(column) for column in zip(*rows))
@@ -423,12 +443,15 @@ def parse_field_overrides(text):
 
 
 def _lookup(record, dotted):
-    """Return the value at a dotted key path; raises KeyError when absent."""
+    """Return the value at a dotted path of dict keys and list indices; raises KeyError when absent."""
     value = record
     for part in dotted.split("."):
-        if not isinstance(value, dict) or part not in value:
+        if isinstance(value, dict) and part in value:
+            value = value[part]
+        elif isinstance(value, list) and part.isdigit() and int(part) < len(value):
+            value = value[int(part)]
+        else:
             raise KeyError(dotted)
-        value = value[part]
     return value
 
 
@@ -615,8 +638,8 @@ def parse_arguments(argv=None):
     parser.add_argument("--ground-truth-csv", type=Path,
                         help=f"Isaac ground_truth.csv; default reads {GROUND_TRUTH_TOPIC} from the bag")
     parser.add_argument("--gt-fields", default="",
-                        help="override ground-truth names, e.g. time=sim_time_s,id=name "
-                             f"(keys: {', '.join(DEFAULT_GT_FIELDS)})")
+                        help="override ground-truth names, e.g. time=sim_time_s,id=name,x=position.0 "
+                             f"(keys: {', '.join(DEFAULT_GT_FIELDS)}; JSON names may be dotted paths)")
     parser.add_argument("--topics", nargs="+", default=list(DEFAULT_TRACK_TOPICS))
     parser.add_argument("--ids", help="comma-separated ground-truth IDs to score (default: all)")
     parser.add_argument("--gate-m", type=float, default=ScoringConfig.gate_m)

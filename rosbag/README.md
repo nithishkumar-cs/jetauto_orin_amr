@@ -85,8 +85,11 @@ The ground-truth field names are **assumed** (`time=stamp`, `list=obstacles`,
 `id`, `x`, `y`); the authoritative schema is the `ground_truth` entry of the
 Windows Isaac repo's `config/topic_contract.yaml`. A mismatch fails with the
 names actually present; map them with e.g.
-`--gt-fields time=sim_time_s,id=name,x=position.x,y=position.y` (dotted keys
-address nested JSON; `{sec, nanosec}` stamps are accepted).
+`--gt-fields time=sim_time_s,id=name,x=position.x,y=position.y` (dotted paths
+address nested JSON objects and list indices, e.g. `x=position.0`;
+`{sec, nanosec}` stamps are accepted). Ground truth that gives one obstacle two
+positions at the same time is rejected: it mixes runs, e.g. a CSV appended
+across Isaac launches.
 See the [first real-bag run](../docs/validation/tracker_scoring_reconstructed_gt_2026-10-15.md).
 
 ## Saved-map localization stress check
