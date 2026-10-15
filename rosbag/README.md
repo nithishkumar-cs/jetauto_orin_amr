@@ -81,15 +81,32 @@ near face of a 0.7 m box reads about 0.35 m even when tracking is exact.
 Exit status is 1 if a requested topic is absent or no frame overlapped
 ground truth and TF.
 
-The ground-truth field names are **assumed** (`time=stamp`, `list=obstacles`,
-`id`, `x`, `y`); the authoritative schema is the `ground_truth` entry of the
-Windows Isaac repo's `config/topic_contract.yaml`. A mismatch fails with the
-names actually present; map them with e.g.
+The default ground-truth fields match Isaac's schema (the `ground_truth` entry
+of the Windows Isaac repo's `config/topic_contract.yaml`, and
+`GroundTruthRecorder._CSV_HEADER` in `isaac/standalone/jetauto_scene.py`):
+
+- CSV: header `stamp_sim,id,label,type,x,y,z,yaw,vx,vy,vz,size_x,size_y,size_z`,
+  one row per obstacle per 0.1 s sample; read as `time=stamp_sim`, `id`, `x`, `y`.
+- JSON: `{"stamp_sim": 12.3, "frame": "odom", "obstacles": [{"id", "label",
+  "type", "position": [x, y, z], "yaw", "velocity": [vx, vy, vz],
+  "size": [x, y, z]}, ...]}`, no ROS header; read as `time=stamp_sim`,
+  `list=obstacles`, `id`, `x=position.0`, `y=position.1`.
+
+A mismatch fails with the names actually present; map them with e.g.
 `--gt-fields time=sim_time_s,id=name,x=position.x,y=position.y` (dotted paths
-address nested JSON objects and list indices, e.g. `x=position.0`;
-`{sec, nanosec}` stamps are accepted). Ground truth that gives one obstacle two
-positions at the same time is rejected: it mixes runs, e.g. a CSV appended
-across Isaac launches.
+address nested JSON objects and list indices; `{sec, nanosec}` stamps are
+accepted). Ground truth that gives one obstacle two positions at the same time
+is rejected: it mixes runs, e.g. a CSV appended across Isaac launches.
+
+**`stamp_sim` lags `/clock` by about 0.067 s (not measured precisely).** Isaac
+computes it as its script frame count / 60, sampled before each simulation
+step, not read from Isaac's simulation clock. Isaac's reset leaves the
+simulation running through three setup updates before that loop starts, so
+`stamp_sim` probably trails `/clock` and sensor header stamps by about 4 ticks
+(~0.067 s): a sample stamped T describes the scene at about `/clock` T + 0.067 s.
+The scorer applies no correction. The direction matches the first real-bag
+run's finding that shifting ground truth later helps, but 0.067 s does not
+explain all of the 0.2 s shift seen there.
 See the [first real-bag run](../docs/validation/tracker_scoring_reconstructed_gt_2026-10-15.md).
 
 ## Saved-map localization stress check

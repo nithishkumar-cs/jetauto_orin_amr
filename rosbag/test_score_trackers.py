@@ -1,4 +1,4 @@
-"""Unit tests for tracker scoring against synthetic ground truth."""
+"""Unit tests for tracker scoring against synthetic and captured Isaac ground truth."""
 
 import importlib.util
 import json
@@ -10,6 +10,8 @@ from pathlib import Path
 import numpy as np
 
 from score_trackers import (
+    CSV_GT_FIELDS,
+    JSON_GT_FIELDS,
     GroundTruth,
     GroundTruthSample,
     PoseTimeline,
@@ -29,6 +31,32 @@ STEPS = 50
 ROS_AVAILABLE = all(
     importlib.util.find_spec(name) for name in ("rosbag2_py", "amr_interfaces", "tf2_msgs")
 )
+
+# Verbatim Isaac output (-CommandDrive -GroundTruth -WalkingPerson -EnableReset):
+# the ground_truth.csv header and its four rows at stamp_sim 12.3 (written with
+# CRLF line endings), and the /ground_truth/obstacles message for that sample.
+ISAAC_CSV_12_3 = (
+    "stamp_sim,id,label,type,x,y,z,yaw,vx,vy,vz,size_x,size_y,size_z\r\n"
+    "12.3,box_near,static,box,2.0,-2.2,0.35,0.0,0.0,0.0,0.0,0.7,0.7,0.7\r\n"
+    "12.3,box_far,static,box,4.2,1.7,0.55,0.0,0.0,0.0,0.0,0.8,0.8,1.1\r\n"
+    "12.3,chair,static,box,3.5,-0.5,0.63,0.0,0.0,0.0,0.0,0.55,0.55,1.26\r\n"
+    "12.3,crossing_person,moving,person,2.8,1.0199999999999996,0.0,0.0,0.0,-0.6,0.0,0.36,0.24,0.86\r\n"
+)
+ISAAC_JSON_12_3 = (
+    '{"stamp_sim": 12.3, "frame": "odom", "obstacles": [{"id": "box_near", "label": "static", "type": "box", '
+    '"position": [2.0, -2.2, 0.35], "yaw": 0.0, "velocity": [0.0, 0.0, 0.0], "size": [0.7, 0.7, 0.7]}, '
+    '{"id": "box_far", "label": "static", "type": "box", "position": [4.2, 1.7, 0.55], "yaw": 0.0, '
+    '"velocity": [0.0, 0.0, 0.0], "size": [0.8, 0.8, 1.1]}, {"id": "chair", "label": "static", "type": "box", '
+    '"position": [3.5, -0.5, 0.63], "yaw": 0.0, "velocity": [0.0, 0.0, 0.0], "size": [0.55, 0.55, 1.26]}, '
+    '{"id": "crossing_person", "label": "moving", "type": "person", "position": [2.8, 1.0199999999999996, 0.0], '
+    '"yaw": 0.0, "velocity": [0.0, -0.6, 0.0], "size": [0.36, 0.24, 0.86]}]}'
+)
+ISAAC_SAMPLES_12_3 = [
+    GroundTruthSample(12.3, "box_near", 2.0, -2.2),
+    GroundTruthSample(12.3, "box_far", 4.2, 1.7),
+    GroundTruthSample(12.3, "chair", 3.5, -0.5),
+    GroundTruthSample(12.3, "crossing_person", 2.8, 1.0199999999999996),
+]
 
 
 def times():
@@ -207,38 +235,57 @@ class GroundTruthParsingTest(unittest.TestCase):
     def test_csv_with_default_and_overridden_columns(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "ground_truth.csv"
-            path.write_text("stamp,id,x,y,motion\n1.5,box,3.0,0.5,static\n")
+            path.write_text("stamp_sim,id,x,y,motion\n1.5,box,3.0,0.5,static\n")
             self.assertEqual(
-                ground_truth_from_csv(path, parse_field_overrides("")),
+                ground_truth_from_csv(path, parse_field_overrides("", CSV_GT_FIELDS)),
                 [GroundTruthSample(1.5, "box", 3.0, 0.5)],
             )
             path.write_text("sim_time_s,name,x,y\n2.0,chair,1.0,2.0\n")
             with self.assertRaisesRegex(ValueError, "sim_time_s"):
-                ground_truth_from_csv(path, parse_field_overrides(""))
-            fields = parse_field_overrides("time=sim_time_s,id=name")
+                ground_truth_from_csv(path, parse_field_overrides("", CSV_GT_FIELDS))
+            fields = parse_field_overrides("time=sim_time_s,id=name", CSV_GT_FIELDS)
             self.assertEqual(ground_truth_from_csv(path, fields), [GroundTruthSample(2.0, "chair", 1.0, 2.0)])
+
+    def test_isaac_csv_rows_parse_with_default_fields(self):
+        """The captured Isaac CSV header and stamp_sim 12.3 rows parse with no --gt-fields."""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "ground_truth.csv"
+            path.write_bytes(ISAAC_CSV_12_3.encode())
+            self.assertEqual(
+                ground_truth_from_csv(path, parse_field_overrides("", CSV_GT_FIELDS)), ISAAC_SAMPLES_12_3,
+            )
+            with self.assertRaisesRegex(ValueError, r"missing ground-truth column\(s\) \['position.0', 'position.1'\]"):
+                ground_truth_from_csv(path, JSON_GT_FIELDS)
+
+    def test_isaac_json_message_parses_with_default_fields(self):
+        """The captured /ground_truth/obstacles message parses with no --gt-fields, matching the CSV rows."""
+        self.assertEqual(
+            ground_truth_from_json(ISAAC_JSON_12_3, parse_field_overrides("", JSON_GT_FIELDS)), ISAAC_SAMPLES_12_3,
+        )
+        with self.assertRaisesRegex(ValueError, "lacks field 'x'"):
+            ground_truth_from_json(ISAAC_JSON_12_3, CSV_GT_FIELDS)
 
     def test_json_nested_fields_and_ros_stamp(self):
         text = json.dumps({
             "header": {"stamp": {"sec": 3, "nanosec": 500_000_000}},
             "obstacles": [{"name": "person", "position": {"x": 2.0, "y": -1.0}}],
         })
-        fields = parse_field_overrides("time=header.stamp,id=name,x=position.x,y=position.y")
+        fields = parse_field_overrides("time=header.stamp,id=name,x=position.x,y=position.y", JSON_GT_FIELDS)
         self.assertEqual(ground_truth_from_json(text, fields), [GroundTruthSample(3.5, "person", 2.0, -1.0)])
         with self.assertRaisesRegex(ValueError, "top-level keys"):
-            ground_truth_from_json(text, parse_field_overrides(""))
+            ground_truth_from_json(text, parse_field_overrides("", JSON_GT_FIELDS))
 
     def test_json_list_index_fields(self):
-        """`position.0` addresses an array-valued position; an out-of-range index is reported."""
-        text = json.dumps({"stamp": 1.0, "obstacles": [{"id": "box", "position": [3.0, 0.5, 0.25]}]})
-        fields = parse_field_overrides("x=position.0,y=position.1")
-        self.assertEqual(ground_truth_from_json(text, fields), [GroundTruthSample(1.0, "box", 3.0, 0.5)])
+        """`position.N` addresses an array-valued position; an out-of-range index is reported."""
+        text = json.dumps({"stamp_sim": 1.0, "obstacles": [{"id": "box", "position": [3.0, 0.5, 0.25]}]})
+        fields = parse_field_overrides("y=position.2", JSON_GT_FIELDS)
+        self.assertEqual(ground_truth_from_json(text, fields), [GroundTruthSample(1.0, "box", 3.0, 0.25)])
         with self.assertRaisesRegex(ValueError, "position.3"):
-            ground_truth_from_json(text, parse_field_overrides("x=position.3"))
+            ground_truth_from_json(text, parse_field_overrides("x=position.3", JSON_GT_FIELDS))
 
     def test_unknown_field_key_is_rejected(self):
         with self.assertRaises(ValueError):
-            parse_field_overrides("frame=odom")
+            parse_field_overrides("frame=odom", CSV_GT_FIELDS)
 
 
 @unittest.skipUnless(ROS_AVAILABLE, "source ROS 2 and this workspace's install/setup.bash")
@@ -277,9 +324,9 @@ class BagRoundTripTest(unittest.TestCase):
             transform.transform.rotation.z, transform.transform.rotation.w = math.sin(yaw / 2), math.cos(yaw / 2)
             writer.write("/tf", serialize_message(TFMessage(transforms=[transform])), receipt_ns)
 
-            truth = String(data=json.dumps({"stamp": frame.stamp_s, "obstacles": [
-                {"id": "box", "x": 3.0, "y": 0.5},
-                {"id": "person", "x": person_at(frame.stamp_s)[0], "y": person_at(frame.stamp_s)[1]},
+            truth = String(data=json.dumps({"stamp_sim": frame.stamp_s, "frame": "odom", "obstacles": [
+                {"id": "box", "position": [3.0, 0.5, 0.35]},
+                {"id": "person", "position": [*person_at(frame.stamp_s), 0.0]},
             ]}))
             writer.write("/ground_truth/obstacles", serialize_message(truth), receipt_ns)
 
@@ -308,6 +355,24 @@ class BagRoundTripTest(unittest.TestCase):
                 json.loads(output.read_text())["absent_topics"],
                 ["/perception/camera/tracks", "/perception/fused_obstacles"],
             )
+
+    def test_cli_ground_truth_csv_uses_csv_default_fields(self):
+        """--ground-truth-csv reads an Isaac-header CSV with the flat x/y defaults, not JSON's position.N."""
+        with tempfile.TemporaryDirectory() as directory:
+            bag = Path(directory) / "bag"
+            csv_path = Path(directory) / "ground_truth.csv"
+            output = Path(directory) / "scores.json"
+            self.write_bag(bag, perfect_frames())
+            rows = [ISAAC_CSV_12_3.splitlines()[0]] + [
+                f"{sample.stamp_s},{sample.obstacle_id},static,box,{sample.x},{sample.y},0.0,0.0,0.0,0.0,0.0,0.5,0.5,0.5"
+                for sample in ground_truth_samples()
+            ]
+            csv_path.write_bytes(("\r\n".join(rows) + "\r\n").encode())
+            self.assertEqual(main([str(bag), "--topics", "/perception/lidar/tracks",
+                                   "--ground-truth-csv", str(csv_path), "--json", str(output)]), 0)
+            result = json.loads(output.read_text())["topics"]["/perception/lidar/tracks"]
+            self.assertEqual(result["frames_scored"], STEPS)
+            self.assertLess(result["position_error_m"]["max"], 1e-6)
 
 
 if __name__ == "__main__":

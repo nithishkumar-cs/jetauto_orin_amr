@@ -32,13 +32,17 @@ GROUND_TRUTH_TOPIC = "/ground_truth/obstacles"
 TRACK_TYPE = "amr_interfaces/msg/TrackedObstacleArray"
 GROUND_TRUTH_TYPE = "std_msgs/msg/String"
 
-# Assumed names: the authoritative ground-truth schema is the `ground_truth`
-# entry of config/topic_contract.yaml in the Windows Isaac repository, which is
-# not on the Jetson. `--gt-fields` overrides them without a code change. CSV
-# uses time/id/x/y as column names; JSON reads time and list at the message top
-# level and id/x/y inside each list item. Dotted names address nested objects
-# and list indices (`x=position.0` for `"position": [x, y, z]`).
-DEFAULT_GT_FIELDS = {"time": "stamp", "list": "obstacles", "id": "id", "x": "x", "y": "y"}
+# Isaac's ground-truth schema (Windows Isaac repo: the `ground_truth` entry of
+# config/topic_contract.yaml and GroundTruthRecorder._CSV_HEADER). Both formats
+# stamp samples with `stamp_sim`, float simulation seconds that probably trail
+# `/clock` by ~0.067 s, uncorrected here (rosbag/README.md). The CSV flattens the
+# position into x/y columns, while each JSON `obstacles` item nests it as
+# `"position": [x, y, z]`. `--gt-fields` overrides them without a code change.
+# CSV uses time/id/x/y as column names; JSON reads time and list at the message
+# top level and id/x/y inside each list item. Dotted names address nested
+# objects and list indices.
+CSV_GT_FIELDS = {"time": "stamp_sim", "list": "obstacles", "id": "id", "x": "x", "y": "y"}
+JSON_GT_FIELDS = {**CSV_GT_FIELDS, "x": "position.0", "y": "position.1"}
 
 MOTION_KEYS = ("moving_dynamic", "moving_static", "static_dynamic", "static_static")
 
@@ -431,9 +435,12 @@ def score_frames(frames, ground_truth, poses, config):
     }
 
 
-def parse_field_overrides(text):
-    """Return DEFAULT_GT_FIELDS updated by `key=name,...`; raises ValueError on an unknown key."""
-    fields = dict(DEFAULT_GT_FIELDS)
+def parse_field_overrides(text, defaults):
+    """Return a copy of `defaults` (CSV_GT_FIELDS or JSON_GT_FIELDS) updated by `key=name,...`.
+
+    Raises ValueError on an unknown key or an entry without a name.
+    """
+    fields = dict(defaults)
     for item in filter(None, (part.strip() for part in text.split(","))):
         key, separator, name = item.partition("=")
         if not separator or key not in fields or not name:
@@ -638,8 +645,9 @@ def parse_arguments(argv=None):
     parser.add_argument("--ground-truth-csv", type=Path,
                         help=f"Isaac ground_truth.csv; default reads {GROUND_TRUTH_TOPIC} from the bag")
     parser.add_argument("--gt-fields", default="",
-                        help="override ground-truth names, e.g. time=sim_time_s,id=name,x=position.0 "
-                             f"(keys: {', '.join(DEFAULT_GT_FIELDS)}; JSON names may be dotted paths)")
+                        help="override ground-truth names, e.g. time=sim_time_s,id=name "
+                             f"(keys: {', '.join(CSV_GT_FIELDS)}; time defaults to stamp_sim, x/y to CSV "
+                             "columns x,y or JSON position.0,position.1; JSON names may be dotted paths)")
     parser.add_argument("--topics", nargs="+", default=list(DEFAULT_TRACK_TOPICS))
     parser.add_argument("--ids", help="comma-separated ground-truth IDs to score (default: all)")
     parser.add_argument("--gate-m", type=float, default=ScoringConfig.gate_m)
@@ -660,7 +668,9 @@ def parse_arguments(argv=None):
 def main(argv=None):
     """Score every requested topic; exit 1 if a topic is absent or has no scored frame."""
     args = parse_arguments(argv)
-    gt_fields = parse_field_overrides(args.gt_fields)
+    gt_fields = parse_field_overrides(
+        args.gt_fields, JSON_GT_FIELDS if args.ground_truth_csv is None else CSV_GT_FIELDS,
+    )
     frames, pose_samples, gt_samples, absent = read_bag(
         args.bag, args.topics, args.odom_frame, args.base_frame, gt_fields, args.ground_truth_csv is None,
     )
