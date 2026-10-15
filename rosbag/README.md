@@ -38,6 +38,57 @@ prints image formats, and summarizes semantic track IDs. This makes a slow
 simulator distinguishable from missing source frames and exposes identity
 restarts without relying on visual inspection.
 
+## Tracker scoring against Isaac ground truth
+
+Run Isaac with `-GroundTruth` (optionally `-Scenario` and `-WalkingPerson`) and
+the perception stack, then record on the Jetson from a shell with the same
+`ROS_DOMAIN_ID` and Fast DDS profile as bringup. The script refuses to start
+while any scoring topic lacks a publisher and never overwrites a bag:
+
+```bash
+rosbag/record_tracker_scoring.sh ~/jetauto_scoring_head_on_$(date +%Y%m%d_%H%M)
+```
+
+It records `/clock`, TF, `/scan`, `/ground_truth/obstacles`, the tracker
+inputs (`/perception/detections_3d`, `/perception/lidar/clusters`), and the
+camera, LiDAR, and fused tracks. Extra arguments go to `ros2 bag record`.
+
+`score_trackers.py` moves each track array into `odom` with the bag's
+`odom -> base_link` TF at the array stamp and matches it to ground truth
+interpolated to that stamp (CLEAR-MOT: last frame's pairs persist inside the
+gate, the rest use optimal assignment). Ground truth comes from the bag topic,
+or from Isaac's `ground_truth.csv` with `--ground-truth-csv`; its times must be
+Isaac simulation seconds.
+
+```bash
+python3 rosbag/score_trackers.py BAG [--ground-truth-csv ground_truth.csv] [--json scores.json]
+python3 rosbag/score_trackers.py BAG --topics /perception/camera/tracks \
+  --ids crossing_person,chair --fov-deg 81 --max-range-m 6
+```
+
+(81° is the Isaac camera's horizontal field: 4.8 mm aperture, 2.8 mm focal length.)
+
+Per topic and per obstacle it reports recall over *expected* frames, ID
+switches, fragmentations (re-acquired after an expected miss), distinct track
+IDs, center position error, and a moving/static confusion matrix. Motion truth
+is ground-truth speed at or above `--moving-speed-mps` (default 0.20, the
+tracker threshold), not the CSV label. `--ids`, `--fov-deg`, and
+`--max-range-m` make other obstacles "don't care": they absorb tracks but are
+never misses; occlusion is not modelled. Tracks matching no ground truth
+(walls and other scene geometry) are reported as unmatched, not as an error
+rate. Position error is to the obstacle center, so a sensor seeing only the
+near face of a 0.7 m box reads about 0.35 m even when tracking is exact.
+Exit status is 1 if a requested topic is absent or no frame overlapped
+ground truth and TF.
+
+The ground-truth field names are **assumed** (`time=stamp`, `list=obstacles`,
+`id`, `x`, `y`); the authoritative schema is the `ground_truth` entry of the
+Windows Isaac repo's `config/topic_contract.yaml`. A mismatch fails with the
+names actually present; map them with e.g.
+`--gt-fields time=sim_time_s,id=name,x=position.x,y=position.y` (dotted keys
+address nested JSON; `{sec, nanosec}` stamps are accepted).
+See the [first real-bag run](../docs/validation/tracker_scoring_reconstructed_gt_2026-10-15.md).
+
 ## Saved-map localization stress check
 
 `inject_odometry_tf_drift.py` makes a **new** replay bag from an Isaac
