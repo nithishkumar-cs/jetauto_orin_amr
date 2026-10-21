@@ -148,4 +148,6 @@ sequential steady-state publish-to-result measurements produced:
 - `cuda`: 18.87–19.20 ms, 19.00 ms mean;
 - `cpu`: 112.64–115.55 ms, 113.84 ms mean.
 
-No measured attempts were dropped in either run.
+No measured attempts were dropped in either run. A Release-build rerun on
+2026-10-21 measured 18.62 ms (`cuda`) and 63.8 ms (`cpu`); see
+`docs/benchmarks/detector_latency_release_2026-10-21.md`.

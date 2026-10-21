@@ -3,7 +3,7 @@
 `jetauto_orin_amr` is organized as a layered ROS 2 workspace:
 
 1. System orchestration: `robot_bringup` under `src/orchestration/robot_bringup`.
-2. Platform integration: `sensor_drivers`, `tf_and_calibration`, plus hardware drivers and simulator bridges as needed.
+2. Platform integration: hardware drivers (`base_driver`, LiDAR) and simulator/replay bridges are not yet built; Isaac publishes the canonical topics directly, and `amr_interfaces` holds the shared message contracts.
 3. High-performance perception: `perception_detector`.
 4. Robotics interpretation: `perception_detection_depth_projection`,
    `perception_lidar_clustering`, `perception_tracking`, and `perception_fusion`.
@@ -12,9 +12,9 @@
    upstream SLAM Toolbox for online 2D mapping.
 6. Safety and operations: `nav2_collision_monitor`, `scan_health_gate`,
    `estop_gate`, navigation, and diagnostics.
-7. Measurement: `benchmarks`, `evaluation_tools`.
+7. Measurement: `perception_metrics` (profile-mode `/diagnostics` per node) and scripts under `tests/` and `rosbag/`.
 
-The debug mode is intentionally 2D-first. It proves image capture, CUDA preprocessing, detector wiring, and health reporting with the robot hardware path. The profile and production modes expand the launched subsystem set through `system_modes.yaml`.
+Runtime modes (`debug`, `profile`, `production`) are defined in `configs/runtime_modes/system_modes.yaml`: debug and profile expose per-component toggles (a disabled stage is substituted synthetically), production locks required components on. Profile additionally enables detector CUDA timing and per-node metrics.
 
 ## Data Flow
 
