@@ -24,18 +24,15 @@ jetauto_orin_amr/
   datasets/                 Local dataset workspace, not for large committed data
   src/
     orchestration/robot_bringup/  System orchestration entrypoint
-    platform/               Base interface, sensors, TF, shared interfaces
-    perception/             CUDA common, preprocessing, inference, geometry, fusion, tracking
-    localization/           Localization, mapping, odometry fusion
+    amr_interfaces/         Shared message contracts (TrackedObstacle, TrackedObstacleArray)
+    perception/             Detector, depth projection, LiDAR clustering, tracking, fusion, metrics
+    localization/           Odometry fusion, SLAM mapping/localization (upstream SLAM Toolbox)
     navigation/             Placeholder for custom tasks; Nav2 is upstream
-    safety/                 Safety layer
+    safety/                 Collision avoidance chain and operator stop (estop_gate, scan_health_gate, stop_zone_recovery); not safety-rated
+    drivers/ bridges/       Empty until hardware drivers and sim/replay adapters are rebuilt
     tools/                  Diagnostics, benchmarks, evaluation, bag and calibration tools
   tests/                    Cross-package system, integration, replay, and performance tests
 ```
-
-ROS package names are mostly preserved for this reshuffle so existing launch
-files and package dependencies remain usable while the repo adopts the new
-domain layout.
 
 ## First Bring-Up
 
