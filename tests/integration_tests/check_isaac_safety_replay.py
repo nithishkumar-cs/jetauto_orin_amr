@@ -6,6 +6,7 @@ synthetic and /cmd_vel/safety_limited has only this test as a subscriber.
 """
 
 import argparse
+import contextlib
 import os
 from pathlib import Path
 import signal
@@ -36,6 +37,10 @@ CONFIGS = ROOT / "configs/safety"
 SPECS = (
     ("scan_health_gate", "scan_health_gate_node", "scan_health_gate.yaml", None),
     ("estop_gate", "estop_gate_node", "estop_gate.yaml", None),
+    (
+        "stop_zone_recovery", "stop_zone_recovery_node",
+        "stop_zone_recovery.yaml", None,
+    ),
     ("nav2_collision_monitor", "collision_monitor", "collision_monitor.yaml", None),
     (
         "nav2_lifecycle_manager", "lifecycle_manager",
@@ -168,9 +173,14 @@ def verify_window(name, samples, window, require_motion):
     print(f"PASS {name}: {len(selected)} outputs, {moving} nonzero", flush=True)
 
 
-def run(args):
-    if not (args.bag / "metadata.yaml").is_file():
-        raise FileNotFoundError(f"no rosbag metadata: {args.bag}")
+@contextlib.contextmanager
+def safety_chain(bag):
+    """Start the software safety chain on an isolated domain and yield a ReplayObserver.
+
+    On failure prints each process log tail; always tears the chain down.
+    """
+    if not (bag / "metadata.yaml").is_file():
+        raise FileNotFoundError(f"no rosbag metadata: {bag}")
     os.environ["ROS_DOMAIN_ID"] = str(130 + os.getpid() % 70)
     os.environ["ROS_LOCALHOST_ONLY"] = "1"
     os.environ.setdefault("ROS_LOG_DIR", "/tmp/jetauto_isaac_safety_replay_logs")
@@ -196,39 +206,7 @@ def run(args):
             node = ReplayObserver()
             try:
                 wait_for_chain(node)
-                node.send_command()
-                if not spin_until(node, lambda: len(node.finals) >= 2):
-                    raise AssertionError("startup command did not reach final topic")
-                if any(abs(speed) > 0.05 for _, speed in node.finals):
-                    raise AssertionError("startup before first scan was not stopped")
-                print("PASS startup before first scan: final output zero", flush=True)
-
-                failure = []
-                player = threading.Thread(
-                    target=play_bag, args=(node, args.bag, failure), daemon=True
-                )
-                player.start()
-                next_command = time.monotonic()
-                while player.is_alive():
-                    rclpy.spin_once(node, timeout_sec=0.01)
-                    if time.monotonic() >= next_command:
-                        node.send_command()
-                        next_command = time.monotonic() + 0.05
-                player.join()
-                if failure:
-                    raise failure[0]
-                for _ in range(20):
-                    rclpy.spin_once(node, timeout_sec=0.01)
-
-                verify_window("recorded scan + moving TF", node.finals, (1.5, 3.0), True)
-                verify_window("scan dropout", node.finals, (4.1, 5.0), False)
-                verify_window("scan recovery", node.finals, (5.8, 6.5), True)
-                verify_window("TF dropout", node.finals, (7.3, 8.1), False)
-                verify_window("TF recovery", node.finals, (9.0, 10.3), True)
-                verify_window(
-                    "Nav2 fail-open during TF dropout", node.collisions,
-                    (7.3, 8.1), True,
-                )
+                yield node
             except Exception:
                 for process, log in processes:
                     log.flush()
@@ -254,6 +232,44 @@ def run(args):
                         process.wait(timeout=3)
             log.close()
         rclpy.shutdown()
+
+
+def run(args):
+    """Replay the recorded bag with scan and TF dropouts and verify the final output."""
+    with safety_chain(args.bag) as node:
+        node.send_command()
+        if not spin_until(node, lambda: len(node.finals) >= 2):
+            raise AssertionError("startup command did not reach final topic")
+        if any(abs(speed) > 0.05 for _, speed in node.finals):
+            raise AssertionError("startup before first scan was not stopped")
+        print("PASS startup before first scan: final output zero", flush=True)
+
+        failure = []
+        player = threading.Thread(
+            target=play_bag, args=(node, args.bag, failure), daemon=True
+        )
+        player.start()
+        next_command = time.monotonic()
+        while player.is_alive():
+            rclpy.spin_once(node, timeout_sec=0.01)
+            if time.monotonic() >= next_command:
+                node.send_command()
+                next_command = time.monotonic() + 0.05
+        player.join()
+        if failure:
+            raise failure[0]
+        for _ in range(20):
+            rclpy.spin_once(node, timeout_sec=0.01)
+
+        verify_window("recorded scan + moving TF", node.finals, (1.5, 3.0), True)
+        verify_window("scan dropout", node.finals, (4.1, 5.0), False)
+        verify_window("scan recovery", node.finals, (5.8, 6.5), True)
+        verify_window("TF dropout", node.finals, (7.3, 8.1), False)
+        verify_window("TF recovery", node.finals, (9.0, 10.3), True)
+        verify_window(
+            "Nav2 fail-open during TF dropout", node.collisions,
+            (7.3, 8.1), True,
+        )
 
 
 if __name__ == "__main__":
