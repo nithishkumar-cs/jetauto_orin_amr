@@ -29,8 +29,10 @@ because publishing coordinates without a valid reference frame would make the
 result unusable downstream.
 
 Parameters are defined in `configs/perception/lidar_clustering.yaml`.
-The default gap and minimum-point thresholds are starting values; they must be
-tuned using the selected LiDAR resolution and representative scenes.
+The default 0.20 m gap and two-point minimum were selected against labeled
+static geometry in the 1,070-scan Isaac mapping scene (see
+[`static-scene report`](../../../docs/validation/isaac_lidar_labeled_thresholds_2026-10-26.md)). Recheck them
+against moving obstacles and the physical LiDAR's noise and angular resolution.
 
 ## Test tiers
 

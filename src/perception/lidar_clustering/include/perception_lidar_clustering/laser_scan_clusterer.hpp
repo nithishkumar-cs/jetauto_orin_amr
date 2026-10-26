@@ -23,10 +23,11 @@ struct Cluster2D
   std::size_t point_count{0U};
 };
 
+/// Clustering thresholds shared by the standalone core and ROS node defaults.
 struct LidarClustererConfig
 {
   double max_adjacent_point_distance_m{0.20};
-  std::size_t min_cluster_points{3U};
+  std::size_t min_cluster_points{2U};
 };
 
 class LaserScanView

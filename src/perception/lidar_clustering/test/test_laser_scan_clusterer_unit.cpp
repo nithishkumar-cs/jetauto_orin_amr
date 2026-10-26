@@ -79,6 +79,18 @@ TEST(LidarClustererUnit, InvalidReturnsSplitCandidatesAndSmallCandidatesAreDropp
   EXPECT_EQ(clusters.front().point_count, 2U);
 }
 
+TEST(LidarClustererUnit, DefaultRetainsTwoPointFeature)
+{
+  const std::vector<float> ranges{1.0F, 1.0F};
+  const auto scan = make_scan(ranges, 0.0, 0.1);
+  const LidarClusterer clusterer;
+
+  const auto clusters = clusterer.cluster(scan);
+
+  ASSERT_EQ(clusters.size(), 1U);
+  EXPECT_EQ(clusters.front().point_count, 2U);
+}
+
 TEST(LidarClustererUnit, SeparatesAdjacentReturnsFartherThanConfiguredGap)
 {
   const std::vector<float> ranges{1.0F, 1.0F, 2.0F, 2.0F};

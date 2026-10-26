@@ -1,5 +1,10 @@
 # Offline Isaac LiDAR threshold sweep — 2026-10-14
 
+The later [scene-labeled pass](isaac_lidar_labeled_thresholds_2026-10-26.md)
+supersedes the clustering selection below: it retained the 0.20 m gap and
+changed the minimum from three to two points for this static Isaac scene.
+Tracker settings were not changed.
+
 ## Evidence and method
 
 The recorded `jetauto_isaac_mapping_loop_20260928` bag has 1,070 scans over
