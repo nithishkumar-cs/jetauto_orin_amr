@@ -79,6 +79,40 @@ points. At 0.08 m, 0.15 m gap captured 14 more box frames than 0.20 m, while
 0.20 m had 29 fewer extra fragments. This is a near-tie, not a stable ranking
 between those two gaps.
 
+## Follow-up checks: time split, TF offset, and small clusters
+
+The checked-in defaults changed in both `configs/perception/lidar_clustering.yaml`
+and the standalone C++ `LidarClustererConfig`: the gap is 0.20 m and the minimum
+is two points. The first and second 535 scans were scored separately to check
+whether the choice depended on one part of the recording. With a two-point
+minimum, the 0.20 m gap captured 1,029 and 1,033 of 1,070 expected box views
+at 50%, versus 1,031 and 1,027 for 0.15 m. At 80%, 0.20 m captured 785 and
+682, versus 780 and 665 for 0.15 m. It produced 427 and 575 extra substantial
+box pieces, versus 433 and 603. The two-point minimum retained 1,205/1,658
+and 924/1,230 visible chair-leg features; three points retained 987/1,658 and
+364/1,230. The second half includes 258 parked scans, so this is a split of
+one route and scene, not independent validation data.
+
+To probe scan/TF alignment, TF was queried at each scan stamp shifted by
+-0.10, -0.05, +0.05, and +0.10 s, holding the measured scan points fixed.
+Model-matched valid returns fell from 97.8% at zero offset to 91.2%, 94.7%,
+97.0%, and 94.2%, respectively. At these offsets, the 0.20 m gap captured
+17, 21, 7, and 9 more box views at 80% than 0.15 m, with 28, 28, 36, and
+38 fewer extra substantial fragments. At 50% capture, 0.15 m won by seven
+and four views at the two positive offsets; 0.20 m won by five at both
+negative offsets. The two-point minimum retained 731, 734, 683, and 621 more
+visible leg features than three points, respectively. Other nearby gaps
+remain near-tied; these checks support 0.20 m as a stable plateau choice,
+not a uniquely optimized threshold or an estimate of an actual clock offset.
+
+At nominal timing, two points admit 2,543 additional clusters over the
+three-point minimum, all of them two-return groups. Of these, 197 have **no**
+return matched to the static scene model (448 unsupported clusters versus
+251 at three points, across 1,070 scans). The other 2,346 have at least one
+modeled return, which does not establish that every such cluster is a real
+obstacle. Likewise, unmatched clusters may reflect model omissions or pose
+error; 197 is an unsupported-cluster count, not a false-positive count.
+
 ## Scope and reproduction
 
 This selects clustering settings for the recorded **static Isaac scene**.
@@ -96,6 +130,8 @@ before broader claims.
 source /opt/ros/humble/setup.bash
 python3 tests/integration_tests/score_lidar_scene_clusters.py \
   ~/jetauto_isaac_mapping_loop_20260928 > /tmp/lidar_scene_scores.json
+# Reproduce each half with --scan-range 0 535 and --scan-range 535 1070.
+# Reproduce offset checks with --tf-offset-s -0.10, -0.05, 0.05, or 0.10.
 ```
 
 Raw bags and score JSON remain outside Git. The source bag and existing

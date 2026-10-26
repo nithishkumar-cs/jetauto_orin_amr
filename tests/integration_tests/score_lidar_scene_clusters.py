@@ -91,13 +91,14 @@ def raycast(ox, oy, dx, dy):
     return nearest, labels
 
 
-def prepare_scan(scan, poses, tolerance_m):
+def prepare_scan(scan, poses, tolerance_m, tf_offset_s=0.0):
     """Project a scan and label returns that agree with the first scene surface.
 
     Returns (local_x, local_y, valid, labels, is_moving, scene_match_count).
-    Pose interpolation is rejected across a TF gap larger than 0.2 s.
+    Query TF at scan stamp plus tf_offset_s for timing sensitivity. Pose
+    interpolation is rejected across a TF gap larger than 0.2 s.
     """
-    stamp = stamp_s(scan.header)
+    stamp = stamp_s(scan.header) + tf_offset_s
     index = np.searchsorted(poses[:, 0], stamp)
     if index == 0 or index == len(poses) or poses[index, 0] - poses[index-1, 0] > 0.2:
         return None
@@ -210,25 +211,42 @@ def evaluate(prepared):
 
 
 def main():
-    """Read a bag, score the fixed candidate grid, and print JSON results."""
+    """Read a bag and score candidates, optionally shifting or slicing scans."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("bag", type=Path)
     parser.add_argument("--label-tolerance-m", type=float, default=0.12)
+    parser.add_argument("--tf-offset-s", type=float, default=0.0,
+                        help="query TF this many seconds after each scan stamp")
+    parser.add_argument("--scan-range", type=int, nargs=2, metavar=("START", "STOP"),
+                        help="score zero-based scans in [START, STOP)")
     args = parser.parse_args()
     if args.label_tolerance_m <= 0:
         parser.error("--label-tolerance-m must be positive")
+    if not math.isfinite(args.tf_offset_s):
+        parser.error("--tf-offset-s must be finite")
     scans, poses = load_recording(args.bag)
+    if args.scan_range:
+        start, stop = args.scan_range
+        if not 0 <= start < stop <= len(scans):
+            parser.error("--scan-range must satisfy 0 <= START < STOP <= scan count")
+        selected_scans = scans[start:stop]
+    else:
+        selected_scans = scans
     prepared = []
-    for scan in scans:
-        item = prepare_scan(scan, poses, args.label_tolerance_m)
+    for scan in selected_scans:
+        item = prepare_scan(scan, poses, args.label_tolerance_m, args.tf_offset_s)
         if item is None:
             continue
         beam_width = abs(scan.angle_increment)
         full_circle = abs(scan.angle_max - scan.angle_min) + beam_width >= (
             2 * math.pi - beam_width * 0.51)
         prepared.append((*item, full_circle))
+    if not prepared:
+        parser.error("no scans have usable odom -> base_link TF at this offset")
     print(json.dumps({
-        "source_scans": len(scans), "scored_scans": len(prepared),
+        "source_scans": len(scans), "selected_scans": len(selected_scans),
+        "scored_scans": len(prepared), "scan_range": args.scan_range,
+        "tf_offset_s": args.tf_offset_s,
         "moving_scans": int(sum(item[4] for item in prepared)),
         "matched_return_fraction": sum(item[5] for item in prepared) / sum(
             int(item[2].sum()) for item in prepared),

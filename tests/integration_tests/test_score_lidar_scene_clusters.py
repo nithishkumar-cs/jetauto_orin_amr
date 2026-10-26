@@ -3,9 +3,11 @@
 import unittest
 
 import numpy as np
+from sensor_msgs.msg import LaserScan
 
 from score_lidar_scene_clusters import (
     cluster_indices,
+    prepare_scan,
     raycast,
     score_one,
     score_thin_feature,
@@ -14,6 +16,20 @@ from score_lidar_scene_clusters import (
 
 class ScoreLidarSceneClustersTest(unittest.TestCase):
     """Exercise the scorer without depending on a local recording."""
+
+    def test_tf_offset_changes_scene_label(self):
+        """A scan's geometry is held fixed while the TF query stamp shifts."""
+        scan = LaserScan()
+        scan.header.stamp.nanosec = 250_000_000
+        scan.angle_min = 0.0
+        scan.angle_increment = 0.1
+        scan.range_min = 0.1
+        scan.range_max = 10.0
+        scan.ranges = [1.25]
+        times = np.arange(11) / 10
+        poses = np.column_stack((times, times, np.full(11, -2.2), np.zeros(11)))
+        self.assertEqual(prepare_scan(scan, poses, 0.12)[3].tolist(), [6])
+        self.assertEqual(prepare_scan(scan, poses, 0.12, 0.25)[3].tolist(), [0])
 
     def test_raycast_picks_first_scene_surface(self):
         """A beam through the near box reaches that box before the wall."""
