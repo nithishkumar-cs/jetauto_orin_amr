@@ -75,6 +75,7 @@ def ethernet_link(interface, peer):
 
 
 def write_fastdds_profile(path, local_ip):
+    """Write a DDS profile that reaches Isaac and local ROS safety nodes."""
     path.write_text(
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">\n'
@@ -84,6 +85,7 @@ def write_fastdds_profile(path, local_ip):
         '      <type>UDPv4</type>\n'
         '      <interfaceWhiteList>\n'
         f'        <address>{local_ip}</address>\n'
+        '        <address>127.0.0.1</address>\n'
         '      </interfaceWhiteList>\n'
         '    </transport_descriptor>\n'
         '  </transport_descriptors>\n'

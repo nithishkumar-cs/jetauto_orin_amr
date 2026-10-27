@@ -4,8 +4,8 @@
 Starts detector, depth projection, LiDAR clustering, both trackers and fusion
 with the checked-in configs (optionally overriding parameters), plays only the
 raw sensor topics including the recorded sim /clock, and records every
-perception output and TF to a new bag. Perception topics already in the source
-bag are never replayed.
+perception output, TF, and optional Isaac ground truth to a new bag. Perception
+topics already in the source bag are never replayed.
 
 Usage: replay_perception_chain.py SOURCE_BAG OUTPUT_BAG [--set NODE.PARAM=VALUE ...]
            [--no-detector] [--rate R]
@@ -24,11 +24,13 @@ REPO = Path(__file__).resolve().parents[2]
 CFG = REPO / "configs" / "perception"
 RAW_TOPICS = [
     "/clock", "/tf", "/tf_static", "/scan",
+    "/ground_truth/obstacles",
     "/camera/rgb/image_rect_color", "/camera/aligned_depth_to_rgb/image_raw",
     "/camera/rgb/camera_info",
 ]
 OUT_TOPICS = [
     "/tf", "/tf_static",
+    "/ground_truth/obstacles",
     "/perception/detections_2d", "/perception/detections_3d",
     "/perception/lidar/clusters", "/perception/lidar/tracks",
     "/perception/camera/tracks", "/perception/fused_obstacles",

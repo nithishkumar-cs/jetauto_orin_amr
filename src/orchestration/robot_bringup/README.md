@@ -139,7 +139,7 @@ manager to the saved-map localizer, planner, and software safety chain. It
 does not start `bt_navigator`, a driver, or a path goal. A separate caller
 must request `ComputePathToPose`, then send that path to Nav2's `FollowPath`
 action. The controller's `/cmd_vel` goes through collision monitor,
-scan-health gate, and e-stop; only `/cmd_vel/safety_limited` may be consumed
+stop-zone recovery, scan-health gate, and e-stop; only `/cmd_vel/safety_limited` may be consumed
 by Isaac's opt-in command-drive subscriber. The subscriber and full safety
 chain passed a short wired, synthetic-command motion check; bringup alone
 still sends no motion command.
@@ -161,7 +161,13 @@ capped at 0.0667 m/s. Only straight routes at 0.59× wall time were tested — n
 turning, obstacle, recovery, or scan-loss interaction during motion. **This
 does not authorize hardware motion.** Use
 `tests/integration_tests/run_isaac_follow_path.py`, which bounds route length,
-travel, and duration and latches the e-stop on exit. The no-goal lifecycle
+travel, and duration and latches the e-stop on exit. Its `--execute` mode
+requires `--expected-start-map-x` and `--expected-start-map-y` from an
+independent scene/map preflight and rejects a live map pose more than 0.15 m
+away. A 2026-10-26 no-motion plan passed but had a 0.260 m start mismatch,
+so no new goal was sent. See the
+[live ground-truth report](../../../docs/validation/isaac_live_ground_truth_2026-10-26.md).
+The no-goal lifecycle
 smoke test is recorded in the
 [FollowPath bringup report](../../../docs/validation/isaac_follow_path_bringup_2026-10-13.md),
 the drive in the

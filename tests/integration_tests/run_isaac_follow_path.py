@@ -126,15 +126,57 @@ class Runner(Node):
         )
 
 
+def command_chain_ready(node):
+    """Check every safety command stage and the sole Isaac actuator subscriber."""
+    expected = {
+        "/cmd_vel": (None, {"collision_monitor", "stop_zone_recovery"}),
+        "/cmd_vel/collision_limited": ("collision_monitor", {"stop_zone_recovery"}),
+        "/cmd_vel/recovery_limited": ("stop_zone_recovery", {"scan_health_gate"}),
+        "/cmd_vel/scan_health_limited": ("scan_health_gate", {"estop_gate"}),
+        "/cmd_vel/safety_limited": ("estop_gate", {"_World_JetAutoROS_CmdVelSub", "isaac_follow_path_validation"}),
+    }
+    for topic, (publisher, subscribers) in expected.items():
+        observed_subscribers = {
+            endpoint.node_name for endpoint in node.get_subscriptions_info_by_topic(topic)
+        }
+        if observed_subscribers != subscribers:
+            return False
+        if publisher is not None:
+            observed_publishers = {
+                endpoint.node_name for endpoint in node.get_publishers_info_by_topic(topic)
+            }
+            if observed_publishers != {publisher}:
+                return False
+    return True
+
+
+def verify_start_pose(actual_xy, expected_xy, tolerance_m=0.15):
+    """Reject a route when the live map pose disagrees with the scene preflight."""
+    if not all(math.isfinite(value) for value in (*actual_xy, *expected_xy)):
+        raise ValueError("start poses must be finite")
+    residual = math.hypot(actual_xy[0] - expected_xy[0], actual_xy[1] - expected_xy[1])
+    if residual > tolerance_m:
+        raise ValueError(
+            f"map start residual {residual:.3f} m exceeds {tolerance_m:.3f} m "
+            f"(actual={actual_xy}, expected={expected_xy})"
+        )
+    return residual
+
+
 def main():
+    """Plan and optionally execute a bounded Isaac-only Nav2 route."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--isaac-simulation-only", action="store_true", required=True)
     parser.add_argument("--execute", action="store_true", help="Send the planned path to Nav2")
     parser.add_argument("--verify-stopped", action="store_true", help="Check the latched stop only")
     parser.add_argument("--distance-m", type=float, default=0.40)
+    parser.add_argument("--expected-start-map-x", type=float)
+    parser.add_argument("--expected-start-map-y", type=float)
     args = parser.parse_args()
     if not args.isaac_simulation_only or not 0.30 <= args.distance_m <= 0.50:
         raise SystemExit("Isaac-only flag and a 0.30–0.50 m route are required")
+    if args.execute and (args.expected_start_map_x is None or args.expected_start_map_y is None):
+        parser.error("--execute requires an independently verified expected map start x and y")
 
     rclpy.init()
     node = Runner()
@@ -146,16 +188,24 @@ def main():
             node.stop()
             return
         assert len(node.get_publishers_info_by_topic("/clock")) == 1
-        assert len(node.get_subscriptions_info_by_topic("/cmd_vel")) == 1
-        final_subscribers = node.get_subscriptions_info_by_topic("/cmd_vel/safety_limited")
-        assert len(final_subscribers) == 2 and any(
-            "CmdVelSub" in endpoint.node_name for endpoint in final_subscribers
-        )
+        chain_deadline = time.monotonic() + 15.0
+        while not command_chain_ready(node) and time.monotonic() < chain_deadline:
+            node.spin_for(0.2)
+        assert command_chain_ready(node), "safety command chain is incomplete"
         assert "base_driver" not in node.get_node_names()
         assert node.planner.wait_for_server(timeout_sec=5.0)
         assert node.controller.wait_for_server(timeout_sec=5.0)
 
+        transform_deadline = time.monotonic() + 15.0
+        while not node.tf_buffer.can_transform("map", "base_link", Time()):
+            if time.monotonic() >= transform_deadline:
+                raise TimeoutError("fresh map-to-base transform unavailable")
+            node.spin_for(0.2)
         start_x, start_y = node.map_pose()
+        if args.execute:
+            verify_start_pose(
+                (start_x, start_y), (args.expected_start_map_x, args.expected_start_map_y)
+            )
         goal_x, goal_y = start_x + args.distance_m, start_y
         start_cost, goal_cost = node.cost(start_x, start_y), node.cost(goal_x, goal_y)
         assert 0 <= start_cost < 90 and 0 <= goal_cost < 90, (start_cost, goal_cost)

@@ -73,7 +73,27 @@ def distance(a, b):
     return math.hypot(a[1] - b[1], a[2] - b[2])
 
 
+def safety_chain_ready(node):
+    """Require every configured command stage before publishing a motion command."""
+    expected = {
+        "/cmd_vel": ("isaac_safety_motion_probe", {"collision_monitor", "stop_zone_recovery"}),
+        "/cmd_vel/collision_limited": ("collision_monitor", {"stop_zone_recovery"}),
+        "/cmd_vel/recovery_limited": ("stop_zone_recovery", {"scan_health_gate"}),
+        "/cmd_vel/scan_health_limited": ("scan_health_gate", {"estop_gate"}),
+        "/cmd_vel/safety_limited": ("estop_gate", {"_World_JetAutoROS_CmdVelSub", "isaac_safety_motion_probe"}),
+    }
+    for topic, (publisher, subscribers) in expected.items():
+        publishers = {endpoint.node_name for endpoint in node.get_publishers_info_by_topic(topic)}
+        observed_subscribers = {
+            endpoint.node_name for endpoint in node.get_subscriptions_info_by_topic(topic)
+        }
+        if publishers != {publisher} or observed_subscribers != subscribers:
+            return False
+    return True
+
+
 def main():
+    """Check live simulated motion and e-stop behavior through the full chain."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--isaac-simulation-only", action="store_true", required=True)
     args = parser.parse_args()
@@ -85,14 +105,8 @@ def main():
     try:
         wait_for(node, lambda: len(node.odom) >= 10 and node.scans >= 5 and node.clocks >= 10)
         assert len(node.get_publishers_info_by_topic("/clock")) == 1
-        command_subscribers = node.get_subscriptions_info_by_topic("/cmd_vel")
-        assert len(command_subscribers) == 1 and command_subscribers[0].node_name == "collision_monitor"
-        output_subscribers = node.get_subscriptions_info_by_topic("/cmd_vel/safety_limited")
-        assert len(output_subscribers) == 2, output_subscribers  # Isaac plus this observer.
-        assert any("CmdVelSub" in endpoint.node_name for endpoint in output_subscribers)
-        output_publishers = node.get_publishers_info_by_topic("/cmd_vel/safety_limited")
-        assert len(output_publishers) == 1 and output_publishers[0].node_name == "estop_gate"
-        print("PASS one clock, live scans, and sole safety-chain output to Isaac", flush=True)
+        wait_for(node, lambda: safety_chain_ready(node), seconds=15.0)
+        print("PASS one clock, live scans, and complete safety chain to Isaac", flush=True)
 
         initial = node.odom[-1]
         output_start = len(node.output)
