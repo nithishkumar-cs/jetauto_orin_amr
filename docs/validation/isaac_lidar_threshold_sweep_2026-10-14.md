@@ -23,7 +23,7 @@ are under `.agent-work/sw/` and are excluded from Git.
 
 | Candidate | Clusters/scan | Tracks/message | Unique IDs | Dynamic output entries |
 | --- | ---: | ---: | ---: | ---: |
-| Current: 0.20 m gap, 3 points | 17.0 | 25.5 | 1,329 | 65.7% |
+| Then-current: 0.20 m gap, 3 points | 17.0 | 25.5 | 1,329 | 65.7% |
 | Gap 0.10 m | 26.3 | 40.3 | 1,549 | 68.1% |
 | Gap 0.15 m | 17.9 | 27.2 | 1,370 | 67.0% |
 | Gap 0.30 m | 16.8 | 25.3 | 1,320 | 65.7% |
@@ -50,8 +50,8 @@ the current 0.20 m gap. Values from 0.15 to 0.50 m changed aggregate counts
 little; those counts cannot reveal whether a larger gap merges adjacent
 objects. Requiring five or eight points filtered more clusters, but this bag
 has no labeled narrow obstacles to establish the resulting missed-object rate.
-The current 0.20 m gap and three-point minimum remain the best-supported
-provisional settings, so the config was not changed.
+At the time of this sweep, the 0.20 m gap and three-point minimum were retained
+as provisional settings. The later scene-labeled pass selected two points.
 
 The narrower association gate and shorter expiry fragmented identities: they
 produced 53% and 45% more IDs than the current tracker, respectively. Three

@@ -126,6 +126,11 @@ moving-person bag has an unresolved time offset and was not pooled with these
 static labels. Recheck on exported Isaac ground truth and physical LiDAR data
 before broader claims.
 
+The later [two-versus-three tracker replay](isaac_lidar_tracker_minimum_comparison_2026-10-26.md)
+found that confirmation did not absorb all added output: 159 more confirmed
+track observations on 68 shared moving-person frames, with unchanged modeled
+person recall. Those extra observations are not measured false positives.
+
 ```bash
 source /opt/ros/humble/setup.bash
 python3 tests/integration_tests/score_lidar_scene_clusters.py \

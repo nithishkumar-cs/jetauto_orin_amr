@@ -296,11 +296,13 @@ near-massless simulator response, not braking. Still measure real stopping
 distance at max speed on hardware and size the stop zone from that, with
 margin. Two findings came out of it: the stop action has no reverse exemption,
 so a robot stopped with an obstacle in its stop zone **cannot drive itself
-out** (recovery path undecided); and `stop_pub_timeout: 2.0` makes the monitor
+out** without the later bounded reverse-only recovery; and
+`stop_pub_timeout: 2.0` makes the monitor
 publish *nothing* 2 s after the last command, so an actuator-side watchdog is
 **mandatory** in the unwritten `base_driver`, not optional. See
 `docs/validation/isaac_collision_zone_measurement_2026-10-13.md`. The LiDAR
-clustering defaults (0.20 m adjacent-point gap, three-point minimum) and all
-tracking and fusion timing/noise/association/expiry thresholds are also
-starting values only; tune them against representative Isaac and recorded
-hardware scenes.
+clustering defaults (0.20 m adjacent-point gap, two-point minimum) were
+selected on one static Isaac scene. The two-point minimum increased confirmed
+tracker output in a short moving-person replay. Tracking and fusion
+timing/noise/association/expiry thresholds still need representative Isaac
+and physical-sensor labels.
