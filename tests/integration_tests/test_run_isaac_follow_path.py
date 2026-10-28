@@ -2,7 +2,9 @@
 
 import unittest
 
-from tests.integration_tests.run_isaac_follow_path import verify_start_pose
+from sensor_msgs.msg import LaserScan
+
+from tests.integration_tests.run_isaac_follow_path import closest_scan_range, verify_start_pose
 
 
 class StartPoseTest(unittest.TestCase):
@@ -16,6 +18,26 @@ class StartPoseTest(unittest.TestCase):
     def test_accepts_aligned_pose(self):
         """A map pose within the admission tolerance remains usable."""
         self.assertAlmostEqual(verify_start_pose((1.20, 0.01), (1.2175, 0.0)), 0.0201556, places=5)
+
+
+class ScanAdmissionTest(unittest.TestCase):
+    """Require a nearby return or an unusable scan to abort a route."""
+
+    def test_nearest_valid_return(self):
+        """Exclude invalid and out-of-range samples before checking proximity."""
+        scan = LaserScan()
+        scan.range_min = 0.15
+        scan.range_max = 8.0
+        scan.ranges = [-1.0, float("nan"), 8.0, 0.45, 2.0]
+        self.assertAlmostEqual(closest_scan_range(scan), 0.45)
+
+    def test_unusable_scan_fails_closed(self):
+        """An empty valid-range set reports zero clearance."""
+        scan = LaserScan()
+        scan.range_min = 0.15
+        scan.range_max = 8.0
+        scan.ranges = [-1.0, float("inf"), 8.0]
+        self.assertEqual(closest_scan_range(scan), 0.0)
 
 
 if __name__ == "__main__":

@@ -25,6 +25,17 @@ def stamp_seconds(stamp):
     return stamp.sec + stamp.nanosec * 1e-9
 
 
+def closest_scan_range(scan):
+    """Return the nearest valid LiDAR range, or zero when a scan is unusable."""
+    return min(
+        (
+            value for value in scan.ranges
+            if math.isfinite(value) and scan.range_min <= value < scan.range_max
+        ),
+        default=0.0,
+    )
+
+
 def wait_future(node, future, timeout_s):
     deadline = time.monotonic() + timeout_s
     while not future.done() and time.monotonic() < deadline:
@@ -36,12 +47,16 @@ def wait_future(node, future, timeout_s):
 
 class Runner(Node):
     def __init__(self):
+        """Subscribe to live state and prepare bounded Nav2 action clients."""
         super().__init__("isaac_follow_path_validation")
         self.clock_message = None
         self.odom = None
         self.final_commands = []
         self.pose_count = 0
         self.scan_count = 0
+        self.scan_stamp_s = None
+        self.latest_scan_range_m = 0.0
+        self.min_scan_range_m = math.inf
         self.grid = None
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -73,8 +88,12 @@ class Runner(Node):
     def on_pose(self, _):
         self.pose_count += 1
 
-    def on_scan(self, _):
+    def on_scan(self, message):
+        """Track scan freshness and the nearest return for the independent abort."""
         self.scan_count += 1
+        self.scan_stamp_s = stamp_seconds(message.header.stamp)
+        self.latest_scan_range_m = closest_scan_range(message)
+        self.min_scan_range_m = min(self.min_scan_range_m, self.latest_scan_range_m)
 
     def on_grid(self, message):
         self.grid = message
@@ -170,11 +189,14 @@ def main():
     parser.add_argument("--execute", action="store_true", help="Send the planned path to Nav2")
     parser.add_argument("--verify-stopped", action="store_true", help="Check the latched stop only")
     parser.add_argument("--distance-m", type=float, default=0.40)
+    parser.add_argument("--lateral-m", type=float, default=0.0)
     parser.add_argument("--expected-start-map-x", type=float)
     parser.add_argument("--expected-start-map-y", type=float)
     args = parser.parse_args()
     if not args.isaac_simulation_only or not 0.30 <= args.distance_m <= 0.50:
-        raise SystemExit("Isaac-only flag and a 0.30–0.50 m route are required")
+        raise SystemExit("Isaac-only flag and a 0.30–0.50 m forward route are required")
+    if not math.isfinite(args.lateral_m) or abs(args.lateral_m) > 0.20:
+        parser.error("--lateral-m must be within ±0.20 m")
     if args.execute and (args.expected_start_map_x is None or args.expected_start_map_y is None):
         parser.error("--execute requires an independently verified expected map start x and y")
 
@@ -206,7 +228,11 @@ def main():
             verify_start_pose(
                 (start_x, start_y), (args.expected_start_map_x, args.expected_start_map_y)
             )
-        goal_x, goal_y = start_x + args.distance_m, start_y
+            assert node.scan_stamp_s is not None, "no live scan at start"
+            scan_age = stamp_seconds(node.clock_message.clock) - node.scan_stamp_s
+            assert -0.25 < scan_age < 0.5, f"stale scan at start: {scan_age:.3f} s"
+            assert node.latest_scan_range_m > 0.55, "start zone is not clear"
+        goal_x, goal_y = start_x + args.distance_m, start_y + args.lateral_m
         start_cost, goal_cost = node.cost(start_x, start_y), node.cost(goal_x, goal_y)
         assert 0 <= start_cost < 90 and 0 <= goal_cost < 90, (start_cost, goal_cost)
 
@@ -257,31 +283,55 @@ def main():
         command_start = len(node.final_commands)
         pose_start = node.pose_count
         scan_start = node.scan_count
+        node.min_scan_range_m = math.inf
+        wall_start = time.monotonic()
+        sim_start = stamp_seconds(node.clock_message.clock)
         follow_handle = wait_future(node, node.controller.send_goal_async(follow_goal), 10.0)
         assert follow_handle.accepted, "controller rejected path"
         started_motion = True
         follow_future = follow_handle.get_result_async()
         deadline = time.monotonic() + 50.0
+        abort_reason = None
         while not follow_future.done() and time.monotonic() < deadline:
             rclpy.spin_once(node, timeout_sec=0.05)
             latest = node.odom.pose.pose.position
             if math.hypot(latest.x - initial_xy[0], latest.y - initial_xy[1]) > 0.65:
+                abort_reason = "odometry travel exceeded 0.65 m"
                 break
-        if not follow_future.done():
-            wait_future(node, follow_handle.cancel_goal_async(), 5.0)
-            raise TimeoutError("FollowPath timed out or exceeded 0.65 m travel")
+            if node.latest_scan_range_m <= 0.55:
+                abort_reason = "LiDAR proximity fell below 0.55 m"
+                break
+            scan_age = stamp_seconds(node.clock_message.clock) - node.scan_stamp_s
+            if not -0.25 < scan_age < 0.5:
+                abort_reason = f"LiDAR scan became stale: {scan_age:.3f} s"
+                break
+        if abort_reason or not follow_future.done():
+            if not follow_future.done():
+                wait_future(node, follow_handle.cancel_goal_async(), 5.0)
+            raise TimeoutError(abort_reason or "FollowPath timed out")
         follow_result = follow_future.result()
+        node.spin_for(1.0)
         final = node.odom.pose.pose.position
         travel = math.hypot(final.x - initial_xy[0], final.y - initial_xy[1])
+        settled_x, settled_y = node.map_pose()
         speeds = [abs(entry[1]) for entry in node.final_commands[command_start:]]
+        angular_speeds = [abs(entry[3]) for entry in node.final_commands[command_start:]]
         report.update(
             {
                 "follow_status": follow_result.status,
                 "odom_travel_m": travel,
+                "odom_start_xy_m": initial_xy,
+                "odom_end_xy_m": [final.x, final.y],
+                "settled_map_xy_m": [settled_x, settled_y],
+                "settled_map_goal_residual_m": math.hypot(goal_x - settled_x, goal_y - settled_y),
                 "max_final_linear_x_mps": max(speeds, default=0.0),
+                "max_final_angular_z_radps": max(angular_speeds, default=0.0),
+                "min_scan_range_during_follow_m": node.min_scan_range_m,
                 "pose_updates_during_follow": node.pose_count - pose_start,
                 "scans_during_follow": node.scan_count - scan_start,
                 "sim_clock_s": stamp_seconds(node.clock_message.clock),
+                "sim_elapsed_s": stamp_seconds(node.clock_message.clock) - sim_start,
+                "wall_elapsed_s": time.monotonic() - wall_start,
             }
         )
         print(json.dumps({"execution": report}, indent=2), flush=True)

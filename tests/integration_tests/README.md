@@ -49,16 +49,25 @@ python3 tests/integration_tests/run_isaac_follow_path.py --isaac-simulation-only
 ```
 
 Without `--execute` it stops after planning and printing the plan. The
-`--isaac-simulation-only` flag is mandatory, the route is restricted to
-0.30–0.50 m, the goal is abandoned past 0.65 m of odometry travel or 50 s, and
-preflight refuses to proceed unless there is exactly one `/clock` publisher,
-one `/cmd_vel` subscriber, Isaac's subscriber on `/cmd_vel/safety_limited`, and
-no `base_driver` node. `--verify-stopped` only checks that the latched e-stop
+`--isaac-simulation-only` flag is mandatory. The route is restricted to
+0.30–0.50 m forward and at most 0.20 m lateral offset; the goal is abandoned
+past 0.65 m of odometry travel, at LiDAR clearance of 0.55 m or less, on a
+stale scan, or after 50 s. Preflight requires one `/clock` publisher, the
+complete command-stage graph, Isaac's sole actuator subscriber on
+`/cmd_vel/safety_limited`, a verified map start within 0.15 m, and no
+`base_driver` node. `--verify-stopped` only checks that the latched e-stop
 holds zero velocity, without sending a goal.
 
 **It latches the software e-stop on exit by design.** Publish `/estop/reset`
 before the next motion run. Results are in
 `docs/validation/isaac_follow_path_drive_2026-10-13.md`.
+
+For a saved-map start independent of SLAM Toolbox, capture stationary
+`/scan` messages with `ros2 topic echo --once --full-length /scan` and run
+`estimate_isaac_map_start.py` against the map YAML with the measured
+`base_link → lidar_link` XY offset. Compare its pose with the live map pose
+before using `--execute`. The [2026-10-27 map registration and route report](../../docs/validation/isaac_map_registered_follow_path_2026-10-27.md)
+records the simulation evidence and remaining localization limit.
 
 ## Collision-monitor zone measurement
 
