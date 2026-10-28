@@ -4,9 +4,9 @@ perception_lidar_clustering:
     clusters_out_topic: "/perception/lidar/clusters"
     # Sensor data should not accumulate if downstream processing falls behind.
     scan_queue_size: 5
-    # Scored on the static 1,070-scan Isaac mapping scene; recheck with moving
-    # obstacles and the physical LiDAR before treating these as general settings.
+    # The gap was scored on static Isaac geometry. The three-point minimum
+    # limits extra confirmed track output in the paired moving-person replay.
+    # Recheck both against representative moving and physical LiDAR data.
     # Consecutive valid returns farther apart than this start separate clusters.
     max_adjacent_point_distance_m: 0.20
-    # Keep two-beam narrow surfaces; single returns remain excluded.
-    min_cluster_points: 2
+    min_cluster_points: 3

@@ -27,7 +27,7 @@ struct Cluster2D
 struct LidarClustererConfig
 {
   double max_adjacent_point_distance_m{0.20};
-  std::size_t min_cluster_points{2U};
+  std::size_t min_cluster_points{3U};
 };
 
 class LaserScanView

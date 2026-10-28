@@ -29,10 +29,15 @@ because publishing coordinates without a valid reference frame would make the
 result unusable downstream.
 
 Parameters are defined in `configs/perception/lidar_clustering.yaml`.
-The default 0.20 m gap and two-point minimum were selected against labeled
-static geometry in the 1,070-scan Isaac mapping scene (see
-[`static-scene report`](../../../docs/validation/isaac_lidar_labeled_thresholds_2026-10-26.md)). Recheck them
-against moving obstacles and the physical LiDAR's noise and angular resolution.
+The default 0.20 m gap was selected against labeled static geometry in the
+1,070-scan Isaac mapping scene (see the
+[`static-scene report`](../../../docs/validation/isaac_lidar_labeled_thresholds_2026-10-26.md)).
+The three-point minimum limits additional confirmed track output in a paired
+moving-person replay; two points retained more narrow chair-leg returns in the
+static scene, with no improvement in four-object matches in the live replay
+(see the [`live comparison`](../../../docs/validation/isaac_live_ground_truth_2026-10-26.md)).
+Recheck both settings against representative moving obstacles and the physical
+LiDAR's noise and angular resolution.
 
 ## Test tiers
 

@@ -79,7 +79,8 @@ TEST(LidarClustererUnit, InvalidReturnsSplitCandidatesAndSmallCandidatesAreDropp
   EXPECT_EQ(clusters.front().point_count, 2U);
 }
 
-TEST(LidarClustererUnit, DefaultRetainsTwoPointFeature)
+/// Verify the three-point default and the explicit narrow-feature override.
+TEST(LidarClustererUnit, DefaultDropsTwoPointFeatureButOverrideRetainsIt)
 {
   const std::vector<float> ranges{1.0F, 1.0F};
   const auto scan = make_scan(ranges, 0.0, 0.1);
@@ -87,8 +88,12 @@ TEST(LidarClustererUnit, DefaultRetainsTwoPointFeature)
 
   const auto clusters = clusterer.cluster(scan);
 
-  ASSERT_EQ(clusters.size(), 1U);
-  EXPECT_EQ(clusters.front().point_count, 2U);
+  EXPECT_TRUE(clusters.empty());
+
+  const LidarClusterer two_point_clusterer(LidarClustererConfig{0.20, 2U});
+  const auto two_point_clusters = two_point_clusterer.cluster(scan);
+  ASSERT_EQ(two_point_clusters.size(), 1U);
+  EXPECT_EQ(two_point_clusters.front().point_count, 2U);
 }
 
 TEST(LidarClustererUnit, SeparatesAdjacentReturnsFartherThanConfiguredGap)
