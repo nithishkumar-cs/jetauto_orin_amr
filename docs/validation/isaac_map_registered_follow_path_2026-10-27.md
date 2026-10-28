@@ -71,3 +71,11 @@ The saved-map localizer's turn-induced map-frame shift needs investigation
 before claiming tight goal accuracy. The goal checker tolerance was not
 changed. Head-on, lateral, and diagonal obstacle-zone runs require the Windows
 scene to be restarted with the corresponding `-Scenario` setting.
+
+A later stationary restart initialized SLAM Toolbox at the post-turn scan
+estimate `(0.875, 0.145, 0.164)`. Its map TF stayed at `(0.985, 0.108)` m
+for ten seconds, and a separate 12 s `/pose` subscription received no new
+pose. This is not a convergence test: the configured 0.05 m travel and
+0.05 rad heading thresholds admit no fresh scan-match update while the base
+is stationary. A bounded moving replay with robot-pose reference is needed
+to isolate the turn shift.
