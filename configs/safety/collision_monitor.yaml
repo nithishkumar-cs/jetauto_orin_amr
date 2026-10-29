@@ -8,6 +8,7 @@
 #
 # Chain:
 #   /cmd_vel --> collision_monitor --> /cmd_vel/collision_limited
+#            --> stop_zone_recovery --> /cmd_vel/recovery_limited
 #            --> scan_health_gate --> /cmd_vel/scan_health_limited
 #            --> estop_gate (operator-stop latch) --> /cmd_vel/safety_limited
 #            --> driver
@@ -27,13 +28,12 @@
 # simulator, so it validates the wiring, NOT these sizes. STILL UNVALIDATED
 # for hardware: measure actual stopping distance at max speed and set the stop
 # zone larger than that, with margin.
-# Two consequences of the stop action, both measured:
-#   - it has no reverse exemption, so a robot stopped with an obstacle in the
-#     stop zone cannot drive itself out through this chain;
-#   - with stop_pub_timeout below, the monitor publishes NOTHING 2 s after the
-#     last command rather than a continuous zero stream, so the driver's own
-#     command watchdog is what keeps the base stopped.
-# See docs/validation/isaac_collision_zone_measurement_2026-10-13.md.
+# Nav2's stop action zeros reverse too. stop_zone_recovery needs that zero
+# output to recognize a blocked pure-reverse command. A short stop_pub_timeout
+# makes the monitor go silent after the first stop, which prevents recovery.
+# The 24 h simulation-time window below preserves monitor authority for a
+# delayed operator recovery; after it expires, recovery fails closed. The
+# eventual base driver still needs its own command-loss watchdog.
 
 # collision_monitor is a nav2 LIFECYCLE node. Started on its own it logs
 # "Waiting on external lifecycle transitions to activate" and then does nothing
@@ -60,9 +60,9 @@ collision_monitor:
     # obstacle. Do not interpret this as a loss-of-LiDAR stop or watchdog.
     source_timeout: 0.3
     base_shift_correction: True
-    # While receiving zero commands, cease forwarding repeated zeros after
-    # this timeout. This is not a hold time after an obstacle disappears.
-    stop_pub_timeout: 2.0
+    # Time since first stop before repeated zero outputs cease. Recovery only
+    # acts on a fresh monitor zero plus a fresh clear rear scan.
+    stop_pub_timeout: 86400.0
 
     polygons: ["StopZone", "SlowZone"]
 

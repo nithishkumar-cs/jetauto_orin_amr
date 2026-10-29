@@ -173,7 +173,29 @@ def most_recent_before(series, when):
     return candidates[-1] if candidates else None
 
 
+def finish_action(node, handle, result_future, abort_reason, timeout_s):
+    """Latch stop and cancel a pending goal on abort or timeout; return status and reason.
+
+    Raises TimeoutError if the action server does not acknowledge cancellation.
+    """
+    if abort_reason is None and not result_future.done():
+        abort_reason = f"timed out after {timeout_s} s"
+    if abort_reason is None:
+        return result_future.result().status, None
+
+    node.latch_estop()
+    if not result_future.done():
+        cancel = handle.cancel_goal_async()
+        end = time.monotonic() + 5.0
+        while not cancel.done() and time.monotonic() < end:
+            rclpy.spin_once(node, timeout_sec=0.05)
+        if not cancel.done():
+            raise TimeoutError("FollowPath cancellation was not acknowledged")
+    return None, abort_reason
+
+
 def main():
+    """Run a bounded Isaac-only approach and stop or cancel on every exit path."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--isaac-simulation-only", action="store_true", required=True)
     parser.add_argument("--distance-m", type=float, default=1.60)
@@ -281,19 +303,9 @@ def main():
                 abort_reason = f"travel cap {args.travel_cap_m} m exceeded ({travel:.3f} m)"
                 break
 
-        if abort_reason is not None:
-            node.latch_estop()
-            if not result_future.done():
-                cancel = handle.cancel_goal_async()
-                end = time.monotonic() + 5.0
-                while not cancel.done() and time.monotonic() < end:
-                    rclpy.spin_once(node, timeout_sec=0.05)
-            status = None
-        elif result_future.done():
-            status = result_future.result().status
-        else:
-            abort_reason = f"timed out after {args.timeout_s} s"
-            status = None
+        status, abort_reason = finish_action(
+            node, handle, result_future, abort_reason, args.timeout_s
+        )
 
         node.spin_for(1.0)
         final_position = node.odom.pose.pose.position

@@ -13,7 +13,7 @@ Every report ends with `input_age_ms` (node clock minus input stamp) and
 |---|---|
 | `perception_detector/metrics` | `detect_wall_ms`, `detection_count`, `cuda_inference_ms` (profile only) |
 | `detection_depth_projection/metrics` | `process_wall_ms`, `input_detections`, `projected_detections` |
-| `lidar_clustering/metrics` | `process_wall_ms`, `scan_points`, `cluster_count` |
+| `perception_lidar_clustering/metrics` | `process_wall_ms`, `scan_points`, `cluster_count` |
 | `perception_camera_tracker/metrics`, `perception_lidar_tracker/metrics` | `process_wall_ms`, `observation_count`, `rejected_count`, `track_count` |
 | `perception_fusion/metrics` | `process_wall_ms`, `camera_tracks`, `lidar_tracks`, `fused_count`, `rejected_count`, `sync_skew_ms` |
 

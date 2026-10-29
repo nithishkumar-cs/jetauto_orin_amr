@@ -107,7 +107,7 @@ Use ROS Humble: `source /opt/ros/humble/setup.bash`.
   While latched it publishes zero velocity for each received command; otherwise it publishes commands
   to `/cmd_vel/safety_limited` after scan-health limiting; it is the final
   software command authority.
-- `stop_zone_recovery` — bounded reverse-only escape from a collision-monitor stop zone (user chose design A, 2026-10-14). If the monitor zeroed a command whose raw `/cmd_vel` is a fresh pure reverse (no strafe/rotation), it emits that reverse capped at 0.05 m/s iff a fresh scan shows the rear box (1.0 m behind, ±0.65 m) empty; otherwise the monitor output passes unchanged. Component tests only; not yet run in Isaac or on hardware. Not safety-rated.
+- `stop_zone_recovery` — bounded reverse-only escape from a collision-monitor stop zone (user chose design A, 2026-10-14). If the monitor zeroed a command whose raw `/cmd_vel` is a fresh pure reverse (no strafe/rotation), it emits that reverse capped at 0.05 m/s iff a fresh scan shows the rear box (1.0 m behind, ±0.65 m) empty; otherwise the monitor output passes unchanged. Component tests, offline replay, and a 2026-10-28 live Isaac head-on run passed. Nav2's stop-output window is 24 h of simulated time so delayed recovery can receive monitor zeros; after that recovery fails closed. No hardware test. Not safety-rated.
 - `scan_health_gate` — separate C++ scan/TF-health interlock. It consumes
   `/cmd_vel/recovery_limited` and `/scan`, publishes
   `/cmd_vel/scan_health_limited`, and emits zero at 20 Hz while scans have
@@ -297,12 +297,15 @@ distance at max speed on hardware and size the stop zone from that, with
 margin. Two findings came out of it: the stop action has no reverse exemption,
 so a robot stopped with an obstacle in its stop zone **cannot drive itself
 out** without the later bounded reverse-only recovery; and
-`stop_pub_timeout: 2.0` makes the monitor
-publish *nothing* 2 s after the last command, so an actuator-side watchdog is
-**mandatory** in the unwritten `base_driver`, not optional. See
-`docs/validation/isaac_collision_zone_measurement_2026-10-13.md`. The LiDAR
-clustering defaults (0.20 m adjacent-point gap, two-point minimum) were
-selected on one static Isaac scene. The two-point minimum increased confirmed
-tracker output in a short moving-person replay. Tracking and fusion
-timing/noise/association/expiry thresholds still need representative Isaac
-and physical-sensor labels.
+the former `stop_pub_timeout: 2.0` made the monitor publish *nothing* after
+the first two seconds of a stop, blocking delayed recovery. The current
+86,400 s simulated window let a live Isaac robot reverse 0.0245 m out of an
+occupied head-on stop zone with the rear clear; after the window it fails
+closed. An actuator-side watchdog is still **mandatory** in the unwritten
+`base_driver`. See `docs/validation/isaac_collision_zone_measurement_2026-10-13.md`
+and `docs/validation/isaac_head_on_zone_recovery_2026-10-28.md`. The LiDAR
+default is a 0.20 m adjacent-point gap and three-point minimum. A two-point
+minimum retained more narrow returns in one static Isaac scene but increased
+confirmed tracker output in paired live replay without improving four-object
+label matches. Tracking and fusion timing/noise/association/expiry thresholds
+still need representative Isaac and physical-sensor labels.
