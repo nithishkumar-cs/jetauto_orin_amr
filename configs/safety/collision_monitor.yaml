@@ -28,6 +28,10 @@
 # simulator, so it validates the wiring, NOT these sizes. STILL UNVALIDATED
 # for hardware: measure actual stopping distance at max speed and set the stop
 # zone larger than that, with margin.
+# A 2026-10-28 lateral Isaac check saw one transient nonzero final strafe command
+# at the stop boundary while later repeats stayed zero. Pair monitor decisions
+# with their consumed scans before claiming continuous stop authority there.
+# See docs/validation/isaac_lateral_zone_2026-10-28.md.
 # Nav2's stop action zeros reverse too. stop_zone_recovery needs that zero
 # output to recognize a blocked pure-reverse command. A short stop_pub_timeout
 # makes the monitor go silent after the first stop, which prevents recovery.

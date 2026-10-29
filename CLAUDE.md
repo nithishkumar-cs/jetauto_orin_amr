@@ -301,9 +301,17 @@ the former `stop_pub_timeout: 2.0` made the monitor publish *nothing* after
 the first two seconds of a stop, blocking delayed recovery. The current
 86,400 s simulated window let a live Isaac robot reverse 0.0245 m out of an
 occupied head-on stop zone with the rear clear; after the window it fails
-closed. An actuator-side watchdog is still **mandatory** in the unwritten
-`base_driver`. See `docs/validation/isaac_collision_zone_measurement_2026-10-13.md`
-and `docs/validation/isaac_head_on_zone_recovery_2026-10-28.md`. The LiDAR
+closed. A 2026-10-28 lateral Isaac approach slowed at 0.350 and stopped at
+0.548 m nearest return. Its side obstacle also occupied the reverse-clearance
+box, correctly blocking pure reverse. One short strafe check nevertheless
+observed a transient nonzero final command and 0.00175 m motion while the
+monitor toggled stop/slow/normal/stop; later repeats blocked it. Do not claim
+continuous stop authority at that boundary until monitor decisions are paired
+with their consumed scans. An actuator-side watchdog is still **mandatory**
+in the unwritten `base_driver`. See
+`docs/validation/isaac_collision_zone_measurement_2026-10-13.md`
+and the [head-on](docs/validation/isaac_head_on_zone_recovery_2026-10-28.md)
+and [lateral](docs/validation/isaac_lateral_zone_2026-10-28.md) reports. The LiDAR
 default is a 0.20 m adjacent-point gap and three-point minimum. A two-point
 minimum retained more narrow returns in one static Isaac scene but increased
 confirmed tracker output in paired live replay without improving four-object
