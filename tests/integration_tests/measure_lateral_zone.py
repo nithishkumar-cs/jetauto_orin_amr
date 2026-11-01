@@ -4,6 +4,8 @@
 import argparse
 import json
 import math
+from pathlib import Path
+import sys
 import time
 
 import rclpy
@@ -16,6 +18,58 @@ from probe_isaac_stop_zone_recovery import RecoveryProbe, seconds
 
 class LateralProbe(RecoveryProbe):
     """Observe both planar command components and the scan geometry of a side obstacle."""
+
+    def __init__(self):
+        """Prepare optional per-callback evidence for a bounded lateral run."""
+        super().__init__()
+        self.trace_events = None
+
+    def capture(self, stage, **values):
+        """Record a local receipt event with wall and simulation times when enabled."""
+        if self.trace_events is not None:
+            odom = self.odom
+            self.trace_events.append({"stage": stage, "wall_ns": time.time_ns(),
+                                      "sim_s": seconds(self.clock_message.clock)
+                                      if self.clock_message is not None else None,
+                                      "latest_scan_stamp_s": seconds(self.scan.header.stamp)
+                                      if self.scan is not None else None,
+                                      "odom": {
+                                          "stamp_s": seconds(odom.header.stamp),
+                                          "x": odom.pose.pose.position.x,
+                                          "y": odom.pose.pose.position.y,
+                                          "qz": odom.pose.pose.orientation.z,
+                                          "qw": odom.pose.pose.orientation.w,
+                                      } if odom is not None else None,
+                                      **values})
+
+    def on_scan(self, message):
+        """Preserve each scan and its locally transformed counts for later replay."""
+        super().on_scan(message)
+        if self.trace_events is None:
+            return
+        try:
+            state = self.zone_state()
+            counts = {"stop": state["stop_zone_points"],
+                      "slow": state["slow_zone_points"]}
+        except Exception as exc:  # Capture a missing TF without changing the safety probe.
+            counts = {"tf_error": str(exc)}
+        self.capture("scan", stamp_s=seconds(message.header.stamp),
+                     frame=message.header.frame_id, counts=counts,
+                     angle_min=message.angle_min, angle_max=message.angle_max,
+                     angle_increment=message.angle_increment,
+                     time_increment=message.time_increment, scan_time=message.scan_time,
+                     range_min=message.range_min, range_max=message.range_max,
+                     ranges=[float(value) if math.isfinite(value) else None
+                             for value in message.ranges],
+                     intensities=[float(value) if math.isfinite(value) else None
+                                  for value in message.intensities])
+
+    def on_log(self, message):
+        """Keep collision-monitor action transitions in the same trace as scans."""
+        super().on_log(message)
+        if message.name.endswith("collision_monitor"):
+            self.capture("monitor_log", stamp_s=seconds(message.stamp),
+                         text=message.msg)
 
     def chain_ready(self):
         """Require the full safety chain, Isaac subscriber, and idle Nav2 controller."""
@@ -41,10 +95,12 @@ class LateralProbe(RecoveryProbe):
     def on_controller_command(self, message):
         """Keep raw planar commands for comparison with each safety stage."""
         self.controller_commands.append((time.monotonic(), message.linear.x, message.linear.y))
+        self.capture("raw", x=message.linear.x, y=message.linear.y)
 
     def on_limited_command(self, message):
         """Keep the collision monitor's planar output."""
         self.limited_commands.append((time.monotonic(), message.linear.x, message.linear.y))
+        self.capture("collision_limited", x=message.linear.x, y=message.linear.y)
 
     def on_recovered(self, message):
         """Keep the recovery node's planar output and observed stop occupancy."""
@@ -55,14 +111,17 @@ class LateralProbe(RecoveryProbe):
             (time.monotonic(), message.linear.x, message.linear.y,
              self.zone_state()["stop_zone_points"] if ready else None)
         )
+        self.capture("recovery_limited", x=message.linear.x, y=message.linear.y)
 
     def on_scan_health(self, message):
         """Keep the planar command entering the final e-stop gate."""
         self.scan_health_commands.append((time.monotonic(), message.linear.x, message.linear.y))
+        self.capture("scan_health_limited", x=message.linear.x, y=message.linear.y)
 
     def on_final_command(self, message):
         """Keep the planar command actually offered to Isaac."""
         self.final_commands.append((time.monotonic(), message.linear.x, message.linear.y))
+        self.capture("safety_limited", x=message.linear.x, y=message.linear.y)
 
     def zone_state(self):
         """Add nearest left and right returns to the existing square-zone counts."""
@@ -333,6 +392,8 @@ def main():
                         required=True)
     parser.add_argument("--expected-start-map-x", type=float, required=True)
     parser.add_argument("--expected-start-map-y", type=float, required=True)
+    parser.add_argument("--trace-output", type=Path,
+                        help="write local scan and command receipts, including on failure")
     args = parser.parse_args()
     if not args.isaac_simulation_only:
         parser.error("explicit Isaac-only flag required")
@@ -340,15 +401,28 @@ def main():
     node = LateralProbe()
     try:
         ready = preflight(node, (args.expected_start_map_x, args.expected_start_map_y))
+        if args.trace_output is not None:
+            node.trace_events = []
         result = {"clear": clear_start, "approach": approach,
                   "challenge": challenge, "forward": forward_challenge,
                   "strafe": strafe_challenge, "reverse": reverse_challenge}[args.phase](node)
         print(json.dumps({"lateral_zone": {"phase": args.phase, "preflight": ready,
                                            "result": result}}, indent=2), flush=True)
     finally:
-        node.latch_estop()
-        node.destroy_node()
-        rclpy.shutdown()
+        try:
+            node.latch_estop()
+        finally:
+            try:
+                if args.trace_output is not None and node.trace_events is not None:
+                    failure = sys.exc_info()[1]
+                    args.trace_output.write_text(json.dumps({
+                        "phase": args.phase,
+                        "failure": str(failure) if failure is not None else None,
+                        "events": node.trace_events,
+                    }))
+            finally:
+                node.destroy_node()
+                rclpy.shutdown()
 
 
 if __name__ == "__main__":
