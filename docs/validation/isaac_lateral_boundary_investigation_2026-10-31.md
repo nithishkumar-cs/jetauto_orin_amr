@@ -55,3 +55,59 @@ availability; if those disagree with the monitor's action, instrument the
 monitor's consumed scan stamp and point counts in an isolated build before
 changing the zone threshold or command policy. Continuous stop authority at
 this boundary remains unverified.
+
+## Live lateral rerun, 2026-10-31
+
+The restored direct Ethernet profile and domain-42 scene passed a 10 s probe:
+one `/clock` publisher; fresh scan, odometry, TF, RGB, depth, and camera-info
+streams; and Isaac as the final-command actuator subscriber. Three stationary
+scans registered the saved map at `(0.000, 0.040, -0.005)` with 93.6% of 2,084
+returns within 0.10 m of occupied cells. The no-driver profile stack passed
+the full graph, lifecycle, freshness, and 0.15 m independent map-start gates.
+
+The initially occupied slow square was cleared with a bounded sideways retreat.
+The live map residual was 0.030 m. The clear phase stopped after 0.0762 m in
+its immediate odometry snapshot; its settled pose was 0.0978 m from the start.
+The trace shows 0.0217 m of subsequent odometry change during zero-command
+settling, including 0.0133 m after the first observed zero final command. The
+pose then held steady. This accounts for the earlier unexplained difference
+between an immediate retreat reading and a later start; the trace does not
+separate queued command delivery from simulated dynamics. Three clear-start
+scans registered `(-0.005, -0.060, -0.005)` with 93.7% of 2,079 returns near
+occupied cells.
+
+A 0.10 m/s raw lateral approach, limited to 1.00 m travel, 0.43 m proximity,
+60 s wall time, fresh scan/TF, and e-stop teardown, stopped after 0.794 m at a
+0.544 m nearest return. The start map residual was 0.024 m. The trace recorded
+stop/slow alternation near the boundary. One locally received scan counted
+three stop-square and 56 slow-square returns immediately before a slowdown
+log; stop returned on the next decision. This supports sensitivity to the
+configured `>3` stop threshold, but local receipt order does not identify the
+scan consumed inside Nav2. No normal transition occurred in this approach.
+
+Three stopped scans registered `(0.015, 0.735, -0.010)` with 89.4% of 2,068
+returns near occupied map cells. A combined reverse/strafe/forward challenge
+and six further combined challenges each passed their independent map-start,
+freshness, command-graph, travel, proximity, time, and e-stop checks. The rear
+box contained 25 returns, so reverse recovery stayed blocked. The first
+challenge yielded 11 zero final samples each for strafe and forward and zero
+odometry travel; the six repeats also had zero odometry span and 5–9 minimum
+stop-square returns across their scans. None logged a normal transition or
+reproduced the earlier nonzero final strafe command. The paired bag contains
+`/scan`, `/tf`, `/tf_static`, `/odom/wheel`, `/clock`, `/rosout`, and all five
+command stages; local traces and the bag are under ignored
+`.agent-work/lateral_20261031/`.
+
+The separate FollowPath `--verify-stopped` helper did not complete: its
+preflight saw no occupancy grid within its wait, so it sent no command. The
+stopped-state traces themselves recorded zero final commands and zero odometry
+span across the seven challenges.
+
+Recording initially made the harness reject the command graph before motion:
+the graph check expected exactly the actuator and probe subscribers. It now
+allows the passive `rosbag2_recorder` while still requiring Isaac and the full
+chain. The rerun exercised this check. No zone threshold or command policy
+was changed. The old stop/slow/normal/stop event has no paired scan, and these
+passing repeats cannot establish its cause or continuous stop authority. A
+fresh scene reset and an instrumented monitor that reports its consumed scan
+stamp, TF result, and polygon counts are needed to resolve that event.

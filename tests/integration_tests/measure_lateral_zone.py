@@ -72,7 +72,7 @@ class LateralProbe(RecoveryProbe):
                          text=message.msg)
 
     def chain_ready(self):
-        """Require the full safety chain, Isaac subscriber, and idle Nav2 controller."""
+        """Require the safety chain and Isaac while allowing a passive bag recorder."""
         expected = {
             "/cmd_vel": ({"collision_zone_measurement", "controller_server"},
                          {"collision_monitor", "stop_zone_recovery", "collision_zone_measurement"}),
@@ -88,6 +88,7 @@ class LateralProbe(RecoveryProbe):
         for topic, (publishers, subscribers) in expected.items():
             actual_publishers = {item.node_name for item in self.get_publishers_info_by_topic(topic)}
             actual_subscribers = {item.node_name for item in self.get_subscriptions_info_by_topic(topic)}
+            actual_subscribers.discard("rosbag2_recorder")
             if actual_publishers != publishers or actual_subscribers != subscribers:
                 return False
         return True
