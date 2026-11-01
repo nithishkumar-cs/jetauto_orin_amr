@@ -111,3 +111,29 @@ was changed. The old stop/slow/normal/stop event has no paired scan, and these
 passing repeats cannot establish its cause or continuous stop authority. A
 fresh scene reset and an instrumented monitor that reports its consumed scan
 stamp, TF result, and polygon counts are needed to resolve that event.
+
+## Reset verification and paused rerun, 2026-10-31
+
+After the laptop reset, domain 42 still had one `/clock` publisher and Isaac
+subscribed to `/cmd_vel/safety_limited`. A live `/odom/wheel` sample put the
+robot at `(0, 0, 0)` m, and `/ground_truth/obstacles` still placed
+`scenario_obstacle` at its original `(0.0, 1.4)` m. No Jetson motion command
+was sent.
+
+Three passive stream probes failed the live freshness gate. The second observed
+only 1.667 s of simulation-clock progress over 20.0 s of wall time: 17 scans,
+101 clock samples, and maximum wall arrival gaps of 3.341 s for scans and
+2.653 s for clock/odometry. Camera streams were similarly slow. This is
+consistent with slow Isaac stepping rather than a missing DDS publisher: the
+clock stamps advanced in roughly 0.017 s increments without going backward.
+The third observed only 0.267 s of simulation-clock progress in 10.0 s wall
+time, with three scans. The bounded approach and boundary challenge were
+therefore not admitted.
+
+A matching Nav2 Humble 1.1.20 collision-monitor source was staged in ignored
+`.agent-work/nav2_humble_diag/` and built with diagnostic logs for each command
+decision. The scratch build reports the scan stamp and whether it was missing,
+stale, rejected by TF, or accepted, then records per-polygon point counts and
+the monitor output. It has not been run live. The next session must first
+restore normal scan/TF freshness, recheck the independent map start, and keep
+the same bounded motion and e-stop gates.
