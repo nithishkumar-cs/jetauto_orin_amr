@@ -15,6 +15,10 @@ from std_msgs.msg import Bool
 
 from probe_isaac_stop_zone_recovery import RecoveryProbe, seconds
 
+# Mirrors max_points in configs/safety/collision_monitor.yaml: the monitor
+# stops only when StopZone points exceed this count.
+STOP_ZONE_MAX_POINTS = 3
+
 
 class LateralProbe(RecoveryProbe):
     """Observe both planar command components and the scan geometry of a side obstacle."""
@@ -23,6 +27,7 @@ class LateralProbe(RecoveryProbe):
         """Prepare optional per-callback evidence for a bounded lateral run."""
         super().__init__()
         self.trace_events = None
+        self.graph_mismatches = []
 
     def capture(self, stage, **values):
         """Record a local receipt event with wall and simulation times when enabled."""
@@ -72,7 +77,7 @@ class LateralProbe(RecoveryProbe):
                          text=message.msg)
 
     def chain_ready(self):
-        """Require the safety chain and Isaac while allowing a passive bag recorder."""
+        """Require the safety chain and Isaac; retain mismatched endpoint names."""
         expected = {
             "/cmd_vel": ({"collision_zone_measurement", "controller_server"},
                          {"collision_monitor", "stop_zone_recovery", "collision_zone_measurement"}),
@@ -85,13 +90,16 @@ class LateralProbe(RecoveryProbe):
             "/cmd_vel/safety_limited": ({"estop_gate"},
                                         {"_World_JetAutoROS_CmdVelSub", "collision_zone_measurement"}),
         }
+        self.graph_mismatches = []
         for topic, (publishers, subscribers) in expected.items():
             actual_publishers = {item.node_name for item in self.get_publishers_info_by_topic(topic)}
             actual_subscribers = {item.node_name for item in self.get_subscriptions_info_by_topic(topic)}
             actual_subscribers.discard("rosbag2_recorder")
             if actual_publishers != publishers or actual_subscribers != subscribers:
-                return False
-        return True
+                self.graph_mismatches.append({"topic": topic,
+                                              "publishers": sorted(actual_publishers),
+                                              "subscribers": sorted(actual_subscribers)})
+        return not self.graph_mismatches
 
     def on_controller_command(self, message):
         """Keep raw planar commands for comparison with each safety stage."""
@@ -156,7 +164,7 @@ def preflight(node, expected_xy):
     assert node.odom is not None and node.scan is not None and node.clock_message is not None
     assert len(node.get_publishers_info_by_topic("/clock")) == 1, "not one clock"
     assert "base_driver" not in node.get_node_names(), "physical driver present"
-    assert node.chain_ready(), "software command graph incomplete"
+    assert node.chain_ready(), f"software command graph incomplete: {node.graph_mismatches}"
     node.assert_fresh()
     assert node.tf_buffer.can_transform("map", "base_link", Time()), "map TF missing"
     map_pose = node.map_pose()
@@ -174,6 +182,7 @@ def drive(node, command, *, limit_s, travel_cap_m, abort_range_m, stop_when,
     start_wall = time.monotonic()
     samples = []
     final_start = len(node.final_commands)
+    checked_final = final_start
     last_scan_stamp = None
     reason = "time limit"
     try:
@@ -186,13 +195,15 @@ def drive(node, command, *, limit_s, travel_cap_m, abort_range_m, stop_when,
                 assert node.rear_box_points() == 0, "rear box became occupied"
             state = node.zone_state()
             if expect_zero:
-                escaped = next((row for row in node.final_commands[final_start:]
-                                if abs(row[1]) >= 0.001 or abs(row[2]) >= 0.001), None)
-                assert escaped is None, (
-                    f"forbidden input ({command.linear.x:.3f}, {command.linear.y:.3f}) "
-                    f"reached final output {escaped[1:]} with latest stop points "
-                    f"{state['stop_zone_points']}"
-                )
+                if state["stop_zone_points"] > STOP_ZONE_MAX_POINTS:
+                    escaped = next((row for row in node.final_commands[checked_final:]
+                                    if abs(row[1]) >= 0.001 or abs(row[2]) >= 0.001), None)
+                    assert escaped is None, (
+                        f"forbidden input ({command.linear.x:.3f}, {command.linear.y:.3f}) "
+                        f"reached final output {escaped[1:]} with stop points "
+                        f"{state['stop_zone_points']}"
+                    )
+                checked_final = len(node.final_commands)
             travel = planar_distance(position(node), start_xy)
             assert travel <= travel_cap_m, f"travel cap {travel_cap_m} m exceeded"
             nearest = state["nearest_left_m"] if command.linear.y > 0 else (
