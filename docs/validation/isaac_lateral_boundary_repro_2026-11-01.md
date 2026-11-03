@@ -165,3 +165,16 @@ status `tf_failed_shifted`/`stale`, a replay start-up artifact of TF/timing (liv
 run had fresh scans). This pairs the leaked decisions directly with their consumed
 scan and confirms they are slowdown at a 1-point scan, not a monitor passthrough
 bug. Hardware scan noise remains unmeasured.
+
+Follow-up on the two early replay rows (repeated at 3x slower replay pacing, same
+result, so not wall-clock timing). The first, scan 5354.05 `tf_failed_shifted`, is a
+replay artifact: the monitor log shows the lidar-to-base lookup failing because the
+replayed odometry TF history starts at 5354.0836, after that scan's stamp. The
+second row (`stale`, curr 5354.45, newest scan used 5354.15) is not explained: scans
+stamped 5354.25 and 5354.35 had been replayed before it but were not consumed, and
+the log shows no further TF error. Treat it as an open replay discrepancy; the live
+run had no stale or TF-failed decisions in its trace window. In the live trace
+sub-threshold (3 or fewer StopZone points) scans occurred twice (1 point at 5354.85
+and 2 points at 5355.45), each isolated, so the longest observed run is one scan
+(0.1 s); the 0.5 s hold would be bypassed only by a run of about five or more
+consecutive low scans after the last zeroed command.
