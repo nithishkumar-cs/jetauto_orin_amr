@@ -196,3 +196,25 @@ Hold stress (component tests, `StopHold...` and `RepeatedFlicker...`, 11 package
 pass): alternating stop and two-slowdown flicker (about 0.45 s between stops) stays
 zero because each stop re-arms the 0.5 s window; a sustained slowdown with no stop
 for more than 0.5 s passes as the monitor's own decision.
+
+Full-chain replay of the challenge-5 trace (isolated domain 144, sim clock; diagnostic
+monitor, `stop_zone_recovery` with the 0.5 s hold, `scan_health_gate`, `estop_gate`,
+all with `configs/safety/`; decision-bag `/tf_static`; odometry TF from the trace;
+scripts in ignored `.agent-work/hold_replay/`):
+
+- The four slowdown outputs at 5354.834-5354.917 s (monitor stage, 1-point scan)
+  were zeroed by the hold; nothing nonzero reached `/cmd_vel/safety_limited` for them.
+- The two decisions at sim 5354.45 where the monitor consumed a 0.3 s old scan
+  (status `stale`, source ignored) passed the raw reverse -0.06 m/s through the
+  monitor, `stop_zone_recovery`, `scan_health_gate` and `estop_gate` to
+  `/cmd_vel/safety_limited`, although the rear box held 26 return points. The
+  gate does not catch it because it checks the newest received scan, which was
+  fresh. This confirms the inferred gap in the replay. Live challenge runs
+  (11 including the hold repeats) never showed a stale or TF-failed monitor
+  decision or a nonzero reverse output, so whether it occurs live is unknown;
+  no safety-chain change was made.
+- Smallest run that beats the 0.5 s hold: low scans arrive about every 0.1 s, so a
+  run of five or more consecutive scans with 3 or fewer StopZone points after the
+  last zeroed command lets the monitor's slowdown through. Component tests
+  confirm a slowdown 0.6 s after the last stop passes. Not observed live (longest
+  run seen: 1 scan).
