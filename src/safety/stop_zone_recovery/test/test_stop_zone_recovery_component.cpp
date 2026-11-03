@@ -177,6 +177,27 @@ TEST_F(RecoveryComponentTest, StopHoldZeroesFlickerSlowdownThenExpires)
   EXPECT_DOUBLE_EQ(run(0.06, 0.0, 0.0, 0.021).linear.x, 0.021);
 }
 
+TEST_F(RecoveryComponentTest, RepeatedFlickerStaysZeroWhileStopsRearmHold)
+{
+  send_scan(0.0F);
+  for (int i = 0; i < 4; ++i) {
+    EXPECT_DOUBLE_EQ(run(0.06, 0.0, 0.0, 0.0).linear.x, 0.0);
+    // Two consecutive slowdown decisions between stops (about 0.3 s) stay held.
+    EXPECT_DOUBLE_EQ(run(0.06, 0.0, 0.0, 0.021).linear.x, 0.0);
+    EXPECT_DOUBLE_EQ(run(0.06, 0.0, 0.0, 0.021).linear.x, 0.0);
+  }
+}
+
+TEST_F(RecoveryComponentTest, SustainedSlowdownBeyondHoldWindowPasses)
+{
+  send_scan(0.0F);
+  EXPECT_DOUBLE_EQ(run(0.06, 0.0, 0.0, 0.0).linear.x, 0.0);
+  spin_for(600ms);
+  // No stop re-arms the hold, so continuous slowdown is the monitor's decision again.
+  EXPECT_DOUBLE_EQ(run(0.06, 0.0, 0.0, 0.021).linear.x, 0.021);
+  EXPECT_DOUBLE_EQ(run(0.06, 0.0, 0.0, 0.021).linear.x, 0.021);
+}
+
 TEST_F(RecoveryComponentTest, NoHoldWithoutPriorStop)
 {
   send_scan(0.0F);

@@ -178,3 +178,21 @@ sub-threshold (3 or fewer StopZone points) scans occurred twice (1 point at 5354
 and 2 points at 5355.45), each isolated, so the longest observed run is one scan
 (0.1 s); the 0.5 s hold would be bypassed only by a run of about five or more
 consecutive low scans after the last zeroed command.
+
+Stale-row follow-up. Per-decision pairing shows the replayed monitor decided at curr
+5354.25 and 5354.45 on scans 5354.05 and 5354.15 although scans stamped 5354.15,
+5354.25 and 5354.35 had been replayed before them; decisions for the raw commands
+between were not logged at all (41 decisions for 53 raw commands). So the monitor
+can decide on an older scan than the newest one received, and at exactly 0.3 s old
+it ignores the source and passes the command (the known fail-open). This is
+consistent with consumption lag in the replay, so the row does not show a live
+stale-input fault, but it also is not ruled out live. `scan_health_gate`
+`scan_timeout_sec` is 0.3 s, equal to the monitor `source_timeout`, and it looks at
+the newest received scan, so it would not zero a command the monitor passed on an
+older consumed scan. No full-chain replay was run; this is an inference from the
+configs and logs.
+
+Hold stress (component tests, `StopHold...` and `RepeatedFlicker...`, 11 package tests
+pass): alternating stop and two-slowdown flicker (about 0.45 s between stops) stays
+zero because each stop re-arms the 0.5 s window; a sustained slowdown with no stop
+for more than 0.5 s passes as the monitor's own decision.
