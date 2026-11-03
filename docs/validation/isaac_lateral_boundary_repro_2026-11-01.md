@@ -87,3 +87,19 @@ safety graph before any repeat. Investigate the boundary's point-count
 sensitivity and the older strafe event before claiming continuous stop
 authority or changing policy. No physical-robot result or safety-rated claim
 follows from this simulation run.
+
+## 2026-11-02 matrix run 1 (decision A rule)
+
+Escape now counts only when StopZone points exceed `max_points` (3), via
+`STOP_ZONE_MAX_POINTS` in `tests/integration_tests/measure_lateral_zone.py`.
+Stack relaunched on the Jetson (stale 22 h bringup stopped); Isaac about 0.6x
+real time. Artifacts are in ignored `.agent-work/lateral_20261102/`.
+
+- Approach 1: 0.799 m odom travel, nearest return 0.549 m, slowdown ratio
+  0.350, stopped with 4 StopZone points and zero final command.
+- Challenge 1 (preflight start residual 0.010 m): rear box occupied (26 points),
+  reverse blocked (0.000 m), strafe and forward each 12 zero final samples and
+  0.000 m travel.
+- The earlier 0.00175 m strafe leak was not reproduced. The check still pairs
+  each output row with the stop count at the next scan, not the consumed scan.
+- Approaches 2-5 await laptop scene resets; one of five completed.
