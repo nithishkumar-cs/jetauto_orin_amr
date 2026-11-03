@@ -110,4 +110,8 @@ real time. Artifacts are in ignored `.agent-work/lateral_20261102/`.
   slowdown ratio 0.350, stopped with 7 StopZone points, zero final command.
   Challenge 3 (start residual 0.022 m): rear box 26 points, reverse 0.000 m,
   strafe and forward 12 zero final samples each, 0.000 m travel.
-- Approaches 4-5 await laptop scene resets; three of five completed.
+- Approach 4 (after scene reset): 0.791 m travel, nearest return 0.551 m,
+  slowdown ratio 0.350, stopped with 5 StopZone points, zero final command.
+  Challenge 4 (start residual 0.018 m): rear box 25 points, reverse 0.000 m,
+  strafe and forward 12 zero final samples each, 0.000 m travel.
+- Approach 5 awaits a laptop scene reset; four of five completed.
