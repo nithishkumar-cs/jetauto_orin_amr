@@ -151,3 +151,17 @@ Offline replay of the challenge-5 trace (isolated domain 77, sim clock, real
 5354.867-5354.917 s; with 0.5 it outputs 0 nonzero over all 52 commands. The
 single low-count scan (1 point at 5354.85 s) was isolated, so 0.5 s covers
 this trace; longer or repeated flicker is untested.
+
+Instrumented-monitor replay of the challenge-5 trace (isolated domain 143, sim
+clock; the diagnostic Nav2 Humble monitor from ignored `.agent-work/nav2_humble_diag`
+with `configs/safety/collision_monitor.yaml`, trace scans/raw commands and odometry
+TF replayed, `/tf_static` from the 2026-11-01 decision bag; scripts in
+`.agent-work/hold_replay/`). It logged 41 decisions. The four nonzero forward outputs
+(0.021 m/s, action 2 slowdown) at sim 5354.834-5354.917 s each consumed scan stamp
+5354.85 s with StopZone 1 point and SlowZone 56 points, below `max_points`=3 -
+the same four rows the live run leaked. All decisions with StopZone 4-9 points were
+action 1 (stop) with zero output. Two earlier reverse rows passed unchanged under scan
+status `tf_failed_shifted`/`stale`, a replay start-up artifact of TF/timing (live
+run had fresh scans). This pairs the leaked decisions directly with their consumed
+scan and confirms they are slowdown at a 1-point scan, not a monitor passthrough
+bug. Hardware scan noise remains unmeasured.
