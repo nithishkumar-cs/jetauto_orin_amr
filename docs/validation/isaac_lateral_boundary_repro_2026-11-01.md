@@ -144,3 +144,10 @@ forward 12 samples each with 0 nonzero and 0.000 m travel. Only 1 of 103 scans
 in those repeats counted 3 or fewer StopZone points, so the hold was rarely
 exercised; it is not shown to fix the flicker leak, only to not regress.
 The window is fixed, not tuned from the trace, and no bag replay was run.
+
+Offline replay of the challenge-5 trace (isolated domain 77, sim clock, real
+`stop_zone_recovery` node, script in ignored `.agent-work/hold_replay/`): with
+`stop_hold_sec`=0 the node reproduces the 3 nonzero 0.021 m/s outputs at sim
+5354.867-5354.917 s; with 0.5 it outputs 0 nonzero over all 52 commands. The
+single low-count scan (1 point at 5354.85 s) was isolated, so 0.5 s covers
+this trace; longer or repeated flicker is untested.
