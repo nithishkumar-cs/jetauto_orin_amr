@@ -50,19 +50,22 @@ StopZoneRecoveryNode::StopZoneRecoveryNode(const rclcpp::NodeOptions & options)
   const auto scan_timeout = declare_parameter<double>("scan_timeout_sec", 0.3);
   const auto command_timeout = declare_parameter<double>("command_timeout_sec", 0.3);
   const auto future_tolerance = declare_parameter<double>("future_stamp_tolerance_sec", 0.1);
+  const auto stop_hold = declare_parameter<double>("stop_hold_sec", 0.5);
   if (
     !std::isfinite(max_reverse_speed_) || max_reverse_speed_ <= 0.0 ||
     !std::isfinite(axis_epsilon_) || axis_epsilon_ < 0.0 || !std::isfinite(box_.x_min) ||
     !std::isfinite(box_.x_max) || box_.x_min >= box_.x_max || !std::isfinite(box_.half_width) ||
     box_.half_width <= 0.0 || min_points < 1 || !std::isfinite(scan_timeout) ||
     scan_timeout <= 0.0 || !std::isfinite(command_timeout) || command_timeout <= 0.0 ||
-    !std::isfinite(future_tolerance) || future_tolerance < 0.0 || base_frame_.empty()) {
+    !std::isfinite(future_tolerance) || future_tolerance < 0.0 || !std::isfinite(stop_hold) ||
+    stop_hold < 0.0 || base_frame_.empty()) {
     throw std::invalid_argument("stop_zone_recovery parameters are invalid");
   }
   min_blocking_points_ = static_cast<std::size_t>(min_points);
   scan_timeout_ = rclcpp::Duration::from_seconds(scan_timeout);
   command_timeout_ = rclcpp::Duration::from_seconds(command_timeout);
   future_tolerance_ = rclcpp::Duration::from_seconds(future_tolerance);
+  stop_hold_ = rclcpp::Duration::from_seconds(stop_hold);
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
@@ -131,12 +134,24 @@ void StopZoneRecoveryNode::on_limited_command(
                             std::abs(raw.linear.y) <= axis_epsilon_ &&
                             std::abs(raw.linear.z) <= axis_epsilon_ &&
                             std::abs(raw.angular.z) <= axis_epsilon_;
-  if (
-    monitor_zeroed && pure_reverse && now() - last_raw_receipt_ <= command_timeout_ &&
-    rear_is_clear()) {
+  const auto t = now();
+  const bool raw_fresh = t - last_raw_receipt_ <= command_timeout_;
+  const bool raw_nonzero = std::abs(raw.linear.x) > axis_epsilon_ ||
+                           std::abs(raw.linear.y) > axis_epsilon_ ||
+                           std::abs(raw.angular.z) > axis_epsilon_;
+  if (monitor_zeroed && raw_fresh && raw_nonzero) {
+    stop_armed_ = true;
+    last_stop_ = t;
+  }
+  if (monitor_zeroed && pure_reverse && raw_fresh && rear_is_clear()) {
     geometry_msgs::msg::Twist reverse;
     reverse.linear.x = std::max(raw.linear.x, -max_reverse_speed_);
     publisher_->publish(reverse);
+  } else if (
+    !monitor_zeroed && stop_armed_ && t - last_stop_ <= stop_hold_ &&
+    !(pure_reverse && raw_fresh && rear_is_clear())) {
+    // The monitor's stop/slow decision flickers near max_points; keep the stop through it.
+    publisher_->publish(geometry_msgs::msg::Twist{});
   } else {
     publisher_->publish(*command);
   }

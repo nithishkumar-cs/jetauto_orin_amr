@@ -39,7 +39,10 @@ std::size_t count_returns_in_box(
  * unchanged, except when the monitor has zeroed a pure-reverse command: then it emits
  * that reverse at a capped speed iff a fresh scan shows the rear box clear. Anything
  * else (stale scan, no TF, rear return, strafe/rotation, stale command) forwards the
- * monitor output, so the monitor's stop stays in force. Not safety-rated.
+ * monitor output, so the monitor's stop stays in force. Stop hold: after the monitor
+ * zeroes a fresh nonzero command, a nonzero monitor output within `stop_hold_sec` is
+ * replaced by zero (unless it is an eligible pure reverse), so the monitor's per-scan
+ * flicker near max_points cannot leak slowed motion. Not safety-rated.
  */
 class StopZoneRecoveryNode : public rclcpp::Node
 {
@@ -61,6 +64,9 @@ private:
   rclcpp::Duration scan_timeout_{0, 0};
   rclcpp::Duration command_timeout_{0, 0};
   rclcpp::Duration future_tolerance_{0, 0};
+  rclcpp::Duration stop_hold_{0, 0};
+  bool stop_armed_{false};
+  rclcpp::Time last_stop_{0, 0, RCL_ROS_TIME};
   geometry_msgs::msg::Twist last_raw_;
   rclcpp::Time last_raw_receipt_{0, 0, RCL_ROS_TIME};
   bool scan_ok_{false};

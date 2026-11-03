@@ -167,6 +167,22 @@ TEST_F(RecoveryComponentTest, ForwardStrafeAndRotationKeepStop)
   EXPECT_DOUBLE_EQ(run(-0.3, 0.0, 0.5).linear.x, 0.0);
 }
 
+TEST_F(RecoveryComponentTest, StopHoldZeroesFlickerSlowdownThenExpires)
+{
+  send_scan(0.0F);
+  EXPECT_DOUBLE_EQ(run(0.06, 0.0, 0.0, 0.0).linear.x, 0.0);
+  // Monitor flickers to the 0.35 slowdown on the next scan: held at zero.
+  EXPECT_DOUBLE_EQ(run(0.06, 0.0, 0.0, 0.021).linear.x, 0.0);
+  spin_for(600ms);
+  EXPECT_DOUBLE_EQ(run(0.06, 0.0, 0.0, 0.021).linear.x, 0.021);
+}
+
+TEST_F(RecoveryComponentTest, NoHoldWithoutPriorStop)
+{
+  send_scan(0.0F);
+  EXPECT_DOUBLE_EQ(run(0.06, 0.0, 0.0, 0.021).linear.x, 0.021);
+}
+
 TEST_F(RecoveryComponentTest, StaleScanKeepsStop)
 {
   send_scan(0.0F);

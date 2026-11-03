@@ -133,3 +133,14 @@ real time. Artifacts are in ignored `.agent-work/lateral_20261102/`.
   5b (4 samples, 0.0021 m). Stop-count flicker (1-9 on a stationary base) means the
   boundary is not a continuous stop; the 0.00175 m strafe leak of 2026-10-28 is
   plausibly the same effect. Consumed-scan pairing is still not logged.
+
+## 2026-11-02 stop hold
+
+`stop_zone_recovery` now holds zero for `stop_hold_sec` (0.5 s) after the monitor
+zeroes a fresh nonzero command, unless the command is an eligible pure reverse.
+Live Isaac run: approach 0.787 m, 8 StopZone points, nearest return 0.549 m;
+five challenge repeats had rear box 25-26 points, reverse 0.000 m, strafe and
+forward 12 samples each with 0 nonzero and 0.000 m travel. Only 1 of 103 scans
+in those repeats counted 3 or fewer StopZone points, so the hold was rarely
+exercised; it is not shown to fix the flicker leak, only to not regress.
+The window is fixed, not tuned from the trace, and no bag replay was run.

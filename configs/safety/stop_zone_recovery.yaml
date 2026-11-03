@@ -3,6 +3,7 @@
 # re-emitted, capped, and only while a fresh scan shows the rear box clear. The
 # box covers the rear half of the 0.55 m stop square plus margin. The cap is a
 # starting value; raise it only after hardware braking distance is measured.
+# stop_hold_sec keeps a monitor stop through scan-to-scan stop/slow flicker.
 stop_zone_recovery:
   ros__parameters:
     raw_cmd_vel_in_topic: "/cmd_vel"
@@ -18,3 +19,4 @@ stop_zone_recovery:
     scan_timeout_sec: 0.3
     command_timeout_sec: 0.3
     future_stamp_tolerance_sec: 0.1
+    stop_hold_sec: 0.5
