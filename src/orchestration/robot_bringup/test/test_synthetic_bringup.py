@@ -122,6 +122,17 @@ def test_unvalidated_variant_combinations_are_rejected():
     config.check_variant_constraints(enabled, "off", "hardware")
 
 
+def test_safety_off_with_drivers_on_is_rejected():
+    """Safety may be disabled only while drivers are disabled."""
+    enabled = {name: False for name in TIERS}
+    config.check_constraints(enabled, "debug")
+    enabled["drivers"] = True
+    with pytest.raises(RuntimeError, match="safety=false with drivers=true"):
+        config.check_constraints(enabled, "debug")
+    enabled["safety"] = True
+    config.check_constraints(enabled, "debug")
+
+
 def test_production_locks_required_and_preserves_variant_defaults():
     """Production does not silently enable navigation or unbuilt teleop."""
     defaults = {name: False for name in TIERS}

@@ -25,8 +25,11 @@ public:
   perception_metrics::MetricsReporter reporter;
 };
 
+/// Publish one report whose input stamp trails the node clock by `stamp_lag`
+/// and return everything received on `/diagnostics`.
 std::vector<diagnostic_msgs::msg::DiagnosticArray> collect(
-  const std::shared_ptr<ReporterNode> & node, bool expect_report)
+  const std::shared_ptr<ReporterNode> & node, bool expect_report,
+  std::chrono::milliseconds stamp_lag = 0ms)
 {
   auto io = std::make_shared<rclcpp::Node>("metrics_test_io");
   std::vector<diagnostic_msgs::msg::DiagnosticArray> reports;
@@ -44,7 +47,7 @@ std::vector<diagnostic_msgs::msg::DiagnosticArray> collect(
     std::this_thread::sleep_for(5ms);
   }
   node->reporter.note_drop();
-  node->reporter.publish(node->now(), {{"process_wall_ms", 1.5}, {"count", 3.0}});
+  node->reporter.publish(node->now() - rclcpp::Duration(stamp_lag), {{"process_wall_ms", 1.5}, {"count", 3.0}});
   const auto deadline = std::chrono::steady_clock::now() + (expect_report ? 2s : 200ms);
   while (std::chrono::steady_clock::now() < deadline && reports.empty()) {
     executor.spin_some();
@@ -71,6 +74,17 @@ TEST(MetricsReporterTest, PublishesCallerValuesThenCommonKeysWhenEnabled)
   EXPECT_GE(std::stod(status.values[2].value), 0.0);
   EXPECT_EQ(status.values[3].key, "dropped_total");
   EXPECT_EQ(status.values[3].value, "1");
+}
+
+TEST(MetricsReporterTest, InputAgeTracksWallClockStampLag)
+{
+  // Wall-clock node (no use_sim_time): a stamp 200 ms old must report about 200 ms,
+  // unlike replay under sim /clock where the age is quantized by the clock.
+  const auto reports = collect(std::make_shared<ReporterNode>(true), true, 200ms);
+  ASSERT_EQ(reports.size(), 1U);
+  const double age_ms = std::stod(reports.front().status.front().values[2].value);
+  EXPECT_GE(age_ms, 200.0);
+  EXPECT_LT(age_ms, 300.0);
 }
 
 TEST(MetricsReporterTest, PublishesNothingWhenDisabled)
