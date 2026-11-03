@@ -218,3 +218,14 @@ scripts in ignored `.agent-work/hold_replay/`):
   last zeroed command lets the monitor's slowdown through. Component tests
   confirm a slowdown 0.6 s after the last stop passes. Not observed live (longest
   run seen: 1 scan).
+
+Source-level check of the stale row (offline, no run). In the instrumented
+monitor, `Scan::dataCallback` only stores the latest message (`data_ = msg`);
+there is no buffering or TF gate on storage. A decision on an older scan
+therefore means the scan subscription callback had not yet executed when the
+`cmd_vel` callback ran (executor queueing), not a dropped scan. In the replay
+this comes from CPU/executor lag with scans and commands arriving together.
+Live, the same ordering can occur only if the monitor's executor lags the
+scan stream by 0.2 s or more, which the 11 live runs never showed. The
+exposure is therefore a function of Jetson load; it is not ruled out, and the
+live instrumented run remains the way to settle it.
