@@ -102,4 +102,8 @@ real time. Artifacts are in ignored `.agent-work/lateral_20261102/`.
   0.000 m travel.
 - The earlier 0.00175 m strafe leak was not reproduced. The check still pairs
   each output row with the stop count at the next scan, not the consumed scan.
-- Approaches 2-5 await laptop scene resets; one of five completed.
+- Approach 2 (after scene reset): 0.804 m travel, nearest return 0.543 m,
+  slowdown ratio 0.350, stopped with 7 StopZone points, zero final command.
+  Challenge 2 (start residual 0.025 m): rear box 25 points, reverse 0.000 m,
+  strafe and forward 12 zero final samples each, 0.000 m travel.
+- Approaches 3-5 await laptop scene resets; two of five completed.
