@@ -114,4 +114,22 @@ real time. Artifacts are in ignored `.agent-work/lateral_20261102/`.
   slowdown ratio 0.350, stopped with 5 StopZone points, zero final command.
   Challenge 4 (start residual 0.018 m): rear box 25 points, reverse 0.000 m,
   strafe and forward 12 zero final samples each, 0.000 m travel.
-- Approach 5 awaits a laptop scene reset; four of five completed.
+- Approach 5 (after scene reset): 0.788 m travel, nearest return 0.550 m,
+  slowdown ratio 0.350, stopped with 4 StopZone points, zero final command.
+- Challenge 5 first run failed the old ungated post-hoc check ("forward escaped"):
+  four final outputs of (0.021, 0) m/s (the 0.35 slowdown ratio of 0.06) at
+  sim 5354.83-5354.92 s while the paired scan (5354.85) counted 1 StopZone
+  point (counts across the run ranged 1-9 per scan). That is below
+  `max_points`=3, so the monitor correctly slowed, but it is a nonzero
+  command with the obstacle inside the stop square; the ungated assertion in
+  `challenge()` contradicted the gated rule in `drive()` and was replaced by a
+  per-direction `nonzero_samples` count (the gated check in `drive()` remains
+  the pass/fail). Rerun challenge 5b (start residual 0.022 m): rear box 26
+  points, reverse 0.000 m, strafe 12 samples / 0 nonzero, forward 12 samples /
+  4 nonzero (0.0021 m odometry travel); the gated check passed.
+- Summary: five approaches all stopped at 0.543-0.551 m with ratio 0.350 and a
+  zero final command. Challenges 1-4 had zero nonzero samples. Challenge 5
+  showed brief 0.35x slowdown leakage at 1-3 StopZone points, reproducible in
+  5b (4 samples, 0.0021 m). Stop-count flicker (1-9 on a stationary base) means the
+  boundary is not a continuous stop; the 0.00175 m strafe leak of 2026-10-28 is
+  plausibly the same effect. Consumed-scan pairing is still not logged.
