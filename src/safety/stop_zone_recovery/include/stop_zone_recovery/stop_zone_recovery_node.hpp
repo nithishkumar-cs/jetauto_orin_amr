@@ -41,8 +41,8 @@ std::size_t count_returns_in_box(
  * else (stale scan, no TF, rear return, strafe/rotation, stale command) forwards the
  * monitor output, so the monitor's stop stays in force. Stop hold: after the monitor
  * zeroes a fresh nonzero command, a nonzero monitor output within `stop_hold_sec` is
- * replaced by zero (unless it is an eligible pure reverse), so the monitor's per-scan
- * flicker near max_points cannot leak slowed motion. Not safety-rated.
+ * replaced by zero, including reverse output. The capped reverse escape above still
+ * applies when the monitor explicitly emits zero. Not safety-rated.
  */
 class StopZoneRecoveryNode : public rclcpp::Node
 {
@@ -51,6 +51,7 @@ public:
 
 private:
   void on_raw_command(const geometry_msgs::msg::Twist::ConstSharedPtr command);
+  /// Apply capped escape to a monitor stop, and suppress nonzero monitor output during a stop hold.
   void on_limited_command(const geometry_msgs::msg::Twist::ConstSharedPtr command);
   void on_scan(const sensor_msgs::msg::LaserScan::ConstSharedPtr scan);
   bool rear_is_clear() const;

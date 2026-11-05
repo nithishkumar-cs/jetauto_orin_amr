@@ -1,6 +1,7 @@
 # Software scan/TF-health interlock. This is not safety-rated; it prevents
-# Nav2 Humble's fail-open monitor from forwarding motion when /scan is missing,
-# stale, or not transformable through odom. Keep the operator e-stop last.
+# missing, stale, or untransformable /scan. The tracked monitor overlay also
+# stops when the scan it consumed is invalid; this gate observes its own scan
+# callback and cannot infer which scan the monitor consumed. Keep e-stop last.
 scan_health_gate:
   ros__parameters:
     cmd_vel_in_topic: "/cmd_vel/recovery_limited"

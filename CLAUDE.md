@@ -122,9 +122,10 @@ Use ROS Humble: `source /opt/ros/humble/setup.bash`.
   lifecycle manager. Publishes `/cmd_vel/collision_limited`, `/safety/zone_stop`,
   `/safety/zone_slow`; consumes `/cmd_vel` and `/scan`. Isaac and rosbag can
   provide `/scan`; the hardware LiDAR driver is still absent. A missing or
-  stale scan is ignored by Nav2 Humble, so its own `source_timeout` is
-  **fail-open**. The separate scan-health gate prevents nonzero commands
-  from reaching e-stop during tested missing/stale-scan cases.
+  stale scan is ignored by stock Nav2 Humble. The tracked overlay in
+  `src/safety/nav2_collision_monitor` makes an invalid consumed source publish
+  zero; source its installed package before bringup. The separate scan-health
+  gate also blocks missing/stale scans, but cannot see which scan Nav2 consumed.
 - `robot_bringup` rebuilt; see above.
 - `robot_bringup` selects a backend: `hardware`, `isaac`, or `rosbag`.
   `backend:=isaac` launches no adapter: Isaac's ROS 2 graph must publish and

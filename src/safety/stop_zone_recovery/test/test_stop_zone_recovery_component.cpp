@@ -188,6 +188,18 @@ TEST_F(RecoveryComponentTest, RepeatedFlickerStaysZeroWhileStopsRearmHold)
   }
 }
 
+TEST_F(RecoveryComponentTest, StopHoldBlocksUnzeroedReverseDespiteClearRear)
+{
+  for (int i = 0; i < 2; ++i) {
+    send_scan(0.0F);
+    EXPECT_DOUBLE_EQ(run(0.06, 0.0, 0.0, 0.0).linear.x, 0.0);
+    send_scan(0.0F);
+    EXPECT_DOUBLE_EQ(run(-0.06, 0.0, 0.0, -0.06).linear.x, 0.0);
+  }
+  send_scan(0.0F);
+  EXPECT_DOUBLE_EQ(run(-0.3, 0.0, 0.0, 0.0).linear.x, -0.05);
+}
+
 TEST_F(RecoveryComponentTest, SustainedSlowdownBeyondHoldWindowPasses)
 {
   send_scan(0.0F);

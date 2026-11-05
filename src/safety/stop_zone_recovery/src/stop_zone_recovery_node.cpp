@@ -147,10 +147,8 @@ void StopZoneRecoveryNode::on_limited_command(
     geometry_msgs::msg::Twist reverse;
     reverse.linear.x = std::max(raw.linear.x, -max_reverse_speed_);
     publisher_->publish(reverse);
-  } else if (
-    !monitor_zeroed && stop_armed_ && t - last_stop_ <= stop_hold_ &&
-    !(pure_reverse && raw_fresh && rear_is_clear())) {
-    // The monitor's stop/slow decision flickers near max_points; keep the stop through it.
+  } else if (!monitor_zeroed && stop_armed_ && t - last_stop_ <= stop_hold_) {
+    // A nonzero monitor decision can be based on a scan received before the latest stop.
     publisher_->publish(geometry_msgs::msg::Twist{});
   } else {
     publisher_->publish(*command);
