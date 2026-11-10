@@ -24,3 +24,8 @@ __pycache__/
 *.pyc
 core
 *.zip
+
+# internal working notes (not published)
+/DESIGN.yaml
+/docs/resume_interview_notes.md
+/docs/engineering_log.md
